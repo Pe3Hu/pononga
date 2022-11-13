@@ -6,6 +6,7 @@ func _ready():
 	
 #	Global.rng.randomize()
 #	var index_r = Global.rng.randi_range(0, options.size()-1)
+#	datas.sort_custom(Sorter, "sort_ascending")
 	
 #	var path = "res://json/"
 #	var name_ = "name"
@@ -15,7 +16,8 @@ func _ready():
 func _input(event):
 	if event is InputEventMouseButton:
 		if Global.flag.click:
-			pass
+			Global.next_rank()
+			Global.flag.click = !Global.flag.click
 		else:
 			Global.flag.click = !Global.flag.click
 

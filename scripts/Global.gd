@@ -14,7 +14,7 @@ func init_num():
 	init_primary_key()
 	
 	num.map = {}
-	num.map.rings = 10
+	num.map.rings = 14
 	num.map.n = num.map.rings*2-1
 	num.map.sectors = 7
 	num.map.cols = num.map.n
@@ -28,13 +28,17 @@ func init_num():
 	
 	num.region = {}
 	num.region.base = 3
-	num.region.ranks = int(custom_log(num.vicinity.count,num.region.base))
+	num.region.pow = int(custom_log(num.vicinity.count,num.region.base))
+	num.region.ranks = num.region.pow-1
 	
 	num.associate = {}
 	num.associate.size = 3
 	
 	num.village = {}
 	num.village.estrangement = 3
+	
+	num.rank = {}
+	num.rank.current = num.region.ranks-1
 
 func init_primary_key():
 	num.primary_key = {}
@@ -69,6 +73,7 @@ func init_arr():
 		Vector2( 0, 1),
 		Vector2(-1, 0)
 	]
+	arr.domain = [0,1,2,3]
 
 func init_node():
 	node.TimeBar = get_node("/root/Game/TimeBar") 
@@ -108,3 +113,11 @@ func load_json(file_path_,file_name_):
 
 func custom_log(value_,base_): 
 	return log(value_)/log(base_)
+
+func next_rank():
+	num.rank.current = (num.rank.current+1)%num.region.ranks
+	
+	for _i in obj.map.arr.region[num.rank.current].size():
+		for vicinity in obj.map.arr.region[num.rank.current][_i].arr.vicinity:
+			var hue = float(_i)/float(obj.map.arr.region[num.rank.current].size())
+			vicinity.color.background = Color().from_hsv(hue,1,1) 

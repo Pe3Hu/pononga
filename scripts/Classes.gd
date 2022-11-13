@@ -4,10 +4,10 @@ extends Node
 class Vicinity:
 	var num = {}
 	var vec = {}
-	var obj = {}
 	var arr = {}
 	var flag = {}
 	var color = {}
+	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.vicinity
@@ -28,8 +28,8 @@ class Vicinity:
 		#var h = float(num.ring)/Global.num.map.rings
 		#color.background = Color().from_hsv(h,1.0,1.0) 
 		
-		for _i in Global.num.region.ranks:
-			arr.region.append(-1)
+		for _i in Global.num.region.pow:
+			arr.region.append(null)
 
 	func get_ring(vec_):
 		var x = abs(vec.grid.x-vec_.x)
@@ -44,27 +44,55 @@ class Vicinity:
 class Region:
 	var num = {}
 	var arr = {}
+	var obj = {}
 	var flag = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.region
 		Global.num.primary_key.region += 1
 		num.rank = input_.rank
+		obj.map = input_.map
 		flag.union = false
 		arr.vicinity = []
+		arr.region = []
+		arr.neighbor = []
+		arr.domain = []
+		arr.domain.append_array(Global.arr.domain)
 
 	func add_vicinity(vicinity_):
 		arr.vicinity.append(vicinity_)
-		vicinity_.arr.region[num.rank] = num.index
+		vicinity_.arr.region[num.rank] = self
 		
-		for neigbhor in vicinity_.arr.neighbor:
-			if arr.vicinity.has(neigbhor):
-				vicinity_.arr.associated.append(neigbhor)
+		if num.rank == 0:
+			for neigbhor in vicinity_.arr.neighbor:
+				if arr.vicinity.has(neigbhor):
+					vicinity_.arr.associated.append(neigbhor)
+				
+				vicinity_.arr.delimited.erase(neigbhor)
+				neigbhor.arr.delimited.erase(vicinity_)
 			
-			vicinity_.arr.delimited.erase(neigbhor)
-			neigbhor.arr.delimited.erase(vicinity_)
+			if arr.vicinity.size() == 3:
+				flag.union = true
+
+	func update_domain_by(vicinity_):
+		if arr.domain.has(vicinity_.arr.domain.front()):
+			if arr.domain.size() > 1:
+				arr.domain.erase(vicinity_.arr.domain.front())
+			
+				if arr.domain.size() == 1:
+					for neighbor in arr.neighbor:
+						neighbor.update_domain_by(self)
+			else:
+				print("update_domain error 1",arr.domain)
+				obj.map.flag.domain = false
+
+	func add_region(region_):
+		arr.region.append(region_)
 		
-		if arr.vicinity.size() == 3:
+		for vicinity in region_.arr.vicinity:
+			add_vicinity(vicinity)
+			
+		if arr.region.size() == 3:
 			flag.union = true
 
 class Village:
@@ -82,11 +110,14 @@ class Village:
 class Map:
 	var num = {}
 	var arr = {}
+	var flag = {}
 
 	func _init():
 		arr.vicinity = []
 		arr.region = []
 		arr.village = []
+		flag.domain = false
+		flag.rank = false
 		init_vicinitys()
 		init_borderlands()
 		init_regions()
@@ -108,12 +139,12 @@ class Map:
 
 		for vicinitys in arr.vicinity:
 			for vicinity in vicinitys:
-				for neighbor in Global.arr.neighbor:
-					var grid = vicinity.vec.grid + neighbor
+				for vec in Global.arr.neighbor:
+					var grid = vicinity.vec.grid + vec
 
 					if check_border(grid):
-						var neighbor_vicinity = arr.vicinity[grid.y][grid.x]
-						add_borderland(vicinity,neighbor_vicinity)
+						var neighbor = arr.vicinity[grid.y][grid.x]
+						add_borderland(vicinity,neighbor)
 
 	func add_borderland(parent_vicinity_,child_vicinity_):
 		if !parent_vicinity_.arr.neighbor.has(child_vicinity_):
@@ -124,7 +155,9 @@ class Map:
 
 	func init_regions():
 		init_associates()
-		
+		set_region_neighbors(0)
+		init_region_ranks()
+		#set_4_domains()
 		#while arr.region.size() < Global.num.region.ranks:
 			#var rank = arr.region.size() - 1
 			
@@ -149,16 +182,17 @@ class Map:
 			if isolated != null:
 				shift_isolated(isolated)
 		
-		for region in arr.region[0]:
-			for vicinity in region.arr.vicinity:
-				var hue = float(region.num.index)/float(arr.region[0].size())
-				vicinity.color.background = Color().from_hsv(hue,1,1) 
+#		for region in arr.region[0]:
+#			for vicinity in region.arr.vicinity:
+#				var hue = float(region.num.index)/float(arr.region[0].size())
+#				vicinity.color.background = Color().from_hsv(hue,1,1) 
 		pass
 
 	func generate_associate(unused_):
 		var rank = 0
 		var input = {}
 		input.rank = rank
+		input.map = self
 		var region = Classes.Region.new(input)
 		arr.region[rank].append(region)
 		var begin = corner_vicinity(unused_)
@@ -280,6 +314,190 @@ class Map:
 		#var swap = 
 		#region.add_vicinity(isolated_)
 
+	func set_region_neighbors(rank_):
+		for region in arr.region[rank_]:
+			for vicinity in region.arr.vicinity:
+				for neighbor in vicinity.arr.neighbor:
+					if neighbor.arr.region[rank_] != vicinity.arr.region[rank_] && neighbor.arr.region[rank_] != null:
+						if !region.arr.neighbor.has(neighbor.arr.region[rank_]):
+							region.arr.neighbor.append(neighbor.arr.region[rank_])
+							neighbor.arr.region[rank_].arr.neighbor.append(region)
+
+	func init_region_ranks():
+		var rank = arr.region.size()-1
+		var ununioned_vicinitys = []
+		
+		for region in arr.region[rank]:
+			if !region.flag.union:
+				for vicinity in region.arr.vicinity:
+					ununioned_vicinitys.append(vicinity) 
+		
+		while rank < Global.num.region.ranks-1:
+			flag.rank = false
+			print("______",rank)
+			arr.region.append([])
+			
+			while !flag.rank:
+				flag.rank = true
+				var free_regions = []
+				var ununioned_regions = []
+				arr.region[rank+1] = []
+				
+				for region in arr.region[rank]:
+					if region.flag.union:
+						free_regions.append(region)
+					else:
+						ununioned_regions.append(region)
+				
+				while free_regions.size() % Global.num.region.base != 0:
+					var options = []
+					
+					for region in ununioned_regions:
+						for neighbor in region.arr.neighbor:
+							if free_regions.has(neighbor):
+								options.append(neighbor)
+					
+					Global.rng.randomize()
+					var index_r = Global.rng.randi_range(0, options.size()-1)
+					var region = options[index_r]
+					free_regions.erase(region)
+					ununioned_regions.append(region)
+				
+				while free_regions.size() >= Global.num.region.base && flag.rank:
+					var datas = []
+					
+					for region in free_regions:
+						var data = {}
+						data.value = 0
+						data.region = region
+						
+						for neighbor in region.arr.neighbor:
+							if free_regions.has(neighbor):
+								data.value += 1
+						
+						datas.append(data)
+						
+					datas.sort_custom(Sorter, "sort_ascending")
+					var options = []
+					
+					for data in datas:
+						if data.value == datas.front().value:
+							options.append(data)
+					
+					Global.rng.randomize()
+					var index_r = Global.rng.randi_range(0, options.size()-1)
+					
+					if options[index_r].value > 0:
+						var regions = [options[index_r].region]
+						free_regions.erase(regions.back())
+						
+						while Global.num.region.base > regions.size() && flag.rank:
+							var datas_2 = []
+							
+							for region in regions:
+								for neighbor in region.arr.neighbor:
+									var data = {}
+									data.value = 0
+									data.region = neighbor
+									
+									if free_regions.has(neighbor) && !regions.has(neighbor):
+										datas_2.append(data)
+							#print("datas_2 :",datas_2.size())
+							if datas_2.size() == 0:
+								print("init_region_ranks fail 0")
+								flag.rank = false
+							else:
+								for data_2 in datas_2:
+									for neighbor in data_2.region.arr.neighbor:
+										if free_regions.has(neighbor) && !regions.has(neighbor):
+											data_2.value += 1
+								
+								datas_2.sort_custom(Sorter, "sort_ascending")
+								regions.append(datas_2.front().region)
+								free_regions.erase(datas_2.front().region)
+						
+						var input = {}
+						input.rank = rank+1
+						input.map = self
+						var new_region = Classes.Region.new(input)
+						
+						if regions.size() != 3:
+							print("init_region_ranks fail 1")
+							flag.rank = false
+						
+						for region in regions:
+							new_region.add_region(region)
+							
+						arr.region[rank+1].append(new_region)
+					else:
+						datas = []
+				
+				if ununioned_regions.size() > 0:
+					var input = {}
+					input.rank = rank+1
+					input.map = self
+					var ununioned_region = Classes.Region.new(input)
+					
+					for region in ununioned_regions:
+						ununioned_region.add_region(region)
+						
+					ununioned_region.flag.union = false
+				
+					arr.region[rank+1].append(ununioned_region)
+				
+				if flag.rank:
+					check_rank(rank+1)
+					
+				print(flag.rank,arr.region[rank+1].size())
+			
+			rank += 1
+			set_region_neighbors(rank)
+		
+		#for regions in arr.region:
+		#	print(regions.size())
+		
+		#var sum = 0
+		
+		for _i in arr.region[rank].size():
+			#sum += arr.region[rank][_i].arr.vicinity.size()
+			
+			for vicinity in arr.region[rank][_i].arr.vicinity:
+				var hue = float(_i)/float(arr.region[rank].size())
+				vicinity.color.background = Color().from_hsv(hue,1,1) 
+		
+		#print(sum, "=",Global.num.vicinity.count)
+
+	func set_4_domains():
+		var rank = 0
+		var domains = [0,0,0,0]
+		
+		while !flag.domain:
+			flag.domain = true
+		
+			for vicinitys in arr.vicinity:
+				for vicinity in vicinitys:
+					var region = vicinity.arr.region[rank]
+					
+					if region.flag.union && region.arr.domain.size() > 1:
+						Global.rng.randomize()
+						var index_r = Global.rng.randi_range(0, region.arr.domain.size()-1)
+						region.arr.domain = [region.arr.domain[index_r]]
+						
+						for neighbor in region.arr.neighbor:
+							neighbor.update_domain_by(region)
+		
+		for region in arr.region[rank]:
+			if region.flag.union:
+				domains[region.arr.domain.front()] += 1
+		
+		print(domains,float(arr.region[rank].size())/4)
+		
+		for region in arr.region[rank]:
+			for vicinity in region.arr.vicinity:
+				if region.arr.domain.size() == 1 && region.flag.union:
+					var hue = float(region.arr.domain.front())/Global.arr.domain.size()
+					vicinity.color.background = Color().from_hsv(hue,1,1) 
+
 	func init_sectors():
 		var vicinity_counters = []
 		var sum = 0
@@ -363,6 +581,15 @@ class Map:
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.map.cols && grid_.y >= 0 && grid_.y < Global.num.map.rows
+
+	func check_rank(rank_):
+		var sum = 0
+		
+		for region in arr.region[rank_]:
+			for vicinity in region.arr.vicinity:
+				sum += 1
+	
+		flag.rank = sum == Global.num.vicinity.count
 
 class Sorter:
 	static func sort_ascending(a, b):
