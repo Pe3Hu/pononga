@@ -15,7 +15,7 @@ func _ready():
 func _input(event):
 	if event is InputEventMouseButton:
 		if Global.flag.click:
-			#Global.next_rank()
+			Global.next_rank()
 			Global.flag.click = !Global.flag.click
 		else:
 			Global.flag.click = !Global.flag.click

@@ -104,11 +104,30 @@ class Sect:
 				var cultivator = Classes_Arena.Cultivator.new(input)
 				arr.cultivator.append(cultivator)
 
-class Arena:
+class Cohort:
 	var num = {}
 	var arr = {}
+	var flag = {}
+	var obj = {}
+	
+	func _init(input_):
+		obj.sect = input_.sect
+		obj.arena = input_.arena
+		obj.arena.dict.cohort[obj.sect.obj.village].append(self) 
+		arr.cultivator = []
+
+class Arena:
+	var num = {}
+	var dict = {}
 	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.arena
 		Global.num.primary_key.arena += 1
+		obj.road = input_.road
+		obj.map = input_.road.arr.village.front().obj.map
+		dict.cohort = {}
+		
+		for village in input_.road.arr.village:
+			village.arr.arena.append(self)
+			dict.cohort[village] = []

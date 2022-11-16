@@ -19,6 +19,7 @@ func _draw():
 				draw_circle(vicinity.vec.center, Global.num.vicinity.a/4, color)
 				
 	for road in Global.obj.map.arr.road:
+		if road.flag.arena:
 			draw_line(road.arr.point.front(), road.arr.point.back(), road.color.line, Global.num.road.width)
 
 func _process(delta):

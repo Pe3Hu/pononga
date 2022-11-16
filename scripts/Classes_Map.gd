@@ -109,14 +109,18 @@ class Village:
 		arr.neighbor = []
 		arr.sect = []
 		arr.road = []
+		arr.arena = []
 		flag.arenas = false
 		flag.interior = false
 		obj.map = input_.map
 		obj.capital = input_.capital
 		obj.capital.flag.capital = true
 		obj.capital.obj.village = self
-		
+		get_to_center()
 		init_sects()
+
+	func get_to_center():
+		num.to_center = obj.capital.vec.center.distance_to(obj.map.vec.center)
 
 	func init_sects():
 		var input = {}
@@ -173,6 +177,7 @@ class Map:
 		arr.region = []
 		arr.village = []
 		arr.road = []
+		arr.arena = []
 		flag.domain = false
 		flag.rank = false
 		init_vicinitys()
@@ -180,6 +185,7 @@ class Map:
 		init_regions()
 		init_sectors()
 		init_villages()
+		init_roads()
 		init_arenas()
 
 	func init_vicinitys():
@@ -216,7 +222,7 @@ class Map:
 	func init_regions():
 		init_associates()
 		set_region_neighbors(0)
-		#init_region_ranks()
+		init_region_ranks()
 		set_4_domains()
 		#while arr.region.size() < Global.num.region.ranks:
 			#var rank = arr.region.size() - 1
@@ -232,6 +238,7 @@ class Map:
 			for vicinity in vicinitys:
 				unused.append(vicinity)
 		
+		#loop checked
 		while unused.size() > Global.num.associate.size:
 			generate_associate(unused)
 		
@@ -260,6 +267,7 @@ class Map:
 		var vicinitys = [begin]
 		var flag = true
 		
+		#loop checked
 		while vicinitys.size() < Global.num.associate.size && flag:
 			var options = []
 			
@@ -392,11 +400,15 @@ class Map:
 				for vicinity in region.arr.vicinity:
 					ununioned_vicinitys.append(vicinity) 
 		
+		#loop checked
 		while rank < Global.num.region.ranks-1:
 			flag.rank = false
 			arr.region.append([])
 			
-			while !flag.rank:
+			##var counter = 0 && counter < 1000: counter +=1
+			var counter = 0
+			while !flag.rank && counter < 1000:
+				counter +=1
 				flag.rank = true
 				var free_regions = []
 				var ununioned_regions = []
@@ -613,7 +625,6 @@ class Map:
 			input.map = self
 			var village = Classes_Map.Village.new(input)
 			arr.village.append(village)
-			
 			var arounds = [input.capital]
 			
 			for _i in Global.num.village.estrangement:
@@ -645,9 +656,7 @@ class Map:
 						village.arr.neighbor.append(around.obj.village)
 						around.obj.village.arr.neighbor.append(village)
 						
-			#print(village.arr.neighbor,arounds.size())
-		
-		init_roads()
+			#rint(illage.arr.neighbor,arounds.size())
 
 	func init_roads():
 		for village in arr.village:
@@ -671,7 +680,7 @@ class Map:
 			datas.append(data)
 		
 		datas.sort_custom(Sorter, "sort_ascending")
-		#print(datas)
+		#rint(datas)
 		var cleans = []
 		
 		for _i in range(datas.size()-1,-1,-1):
@@ -690,14 +699,14 @@ class Map:
 			arr.road.erase(road)
 		
 		for road in arr.road:
-			for village in road.arr.village:
-				village.arr.road.append(road)
-		
-		for road in arr.road:
 			if road.check_straight() && road.num.d >= (Global.num.road.vicinity-1)*Global.num.vicinity.a:
 				arr.road.erase(road)
 		
-		#print(Global.num.road.vicinity-1)#7 too much
+		for road in arr.road:
+			for village in road.arr.village:
+				village.arr.road.append(road)
+		
+		#pint(Global.num.road.vicinity-1)#7 too much
 		set_village_interiors()
 
 	func set_village_interiors():
@@ -722,83 +731,124 @@ class Map:
 
 	func init_arenas():
 		var n = 2
-		var datas = []
+		var success = false
 		
-		for village in arr.village:
-			var data = {}
-			data.village = village
-			data.roads = village.arr.road.size()
-			data.arenas = 0
-			datas.append(data)
+		while !success:
+			success = true
+			var datas = []
+			reset_arenas()
 		
-		while datas.size() > 0:
-			var min_roads = 99
-			var max_arenas = 0
+			for village in arr.village:
+				var data = {}
+				data.village = village
+				data.roads = village.arr.road.size()
+				data.arenas = 0
+				datas.append(data)
 			
-			for data in datas:
-				if max_arenas < data.arenas:
-					max_arenas = data.arenas
-					
-			for data in datas:
-				if data.arenas == max_arenas:
-					if min_roads > data.roads:
-						min_roads = data.roads
-			
-			var options = []
-			
-			for data in datas:
-				if data.arenas == max_arenas && min_roads == data.roads:
-					options.append(data)
-			
-			Global.rng.randomize()
-			var index_r = Global.rng.randi_range(0, options.size()-1)
-			var data = options[index_r]
-			var fail = false
-			
-			while data.arenas < n && !fail:
-				var datas_ = []
+			while datas.size() > 0 && success:
+				var min_roads = 99
+				var max_arenas = 0
 				
-				for road in data.village.arr.road:
-					if !road.flag.arena && !road.arr.village.front().flag.arenas && !road.arr.village.back().flag.arenas:
-						var data_ = {}
-						data_.road = road
-						data_.value = 0
-						var village = road.arr.village.front()
+				for data in datas:
+					if max_arenas < data.arenas:
+						max_arenas = data.arenas
 						
-						if village == data.village:
-							village = road.arr.village.back()
-						
-						for road_ in village.arr.road:
-							var village_ = road_.arr.village.front()
+				for data in datas:
+					if data.arenas == max_arenas:
+						if min_roads > data.roads:
+							min_roads = data.roads
+				
+				var options = []
+				
+				for data in datas:
+					if data.arenas == max_arenas && min_roads == data.roads:
+						options.append(data)
+				
+				Global.rng.randomize()
+				var index_r = Global.rng.randi_range(0, options.size()-1)
+				var data = options[index_r]
+				
+				while data.arenas < n && success:
+					var datas_ = []
+					
+					for road in data.village.arr.road:
+						if !road.flag.arena && !road.arr.village.front().flag.arenas && !road.arr.village.back().flag.arenas:
+							var data_ = {}
+							data_.road = road
+							data_.value = 0
+							var village = road.arr.village.front()
 							
-							if village_ == village:
-								village_ = road_.arr.village.back()
+							if village == data.village:
+								village = road.arr.village.back()
+							
+							for road_ in village.arr.road:
+								var village_ = road_.arr.village.front()
 								
-							if !village_.flag.arenas:
-								data_.value += 1
+								if village_ == village:
+									village_ = road_.arr.village.back()
+									
+								if !village_.flag.arenas:
+									data_.value += 1
+							
+							datas_.append(data_)
+					
+					if datas_.size() > 0:
+						datas_.sort_custom(Sorter, "sort_ascending")
 						
-						datas_.append(data_)
-				
-				if datas_.size() > 0:
-					datas_.sort_custom(Sorter, "sort_ascending")
-					
-					var road = datas_[0].road
-					road.set_arena(true)
-					
-					for village in road.arr.village:
-						for data_ in datas:
-							if data_.village == village:
-								data_.arenas += 1
-								data_.roads -= 1
-								
-								if data_.arenas == n:
-									data_.village.flag.arenas = true
-									datas.erase(data_)
-				else:
-					datas.erase(data)
-					fail = true
+						var road = datas_[0].road
+						road.set_arena(true)
+						
+						for village in road.arr.village:
+							for data_ in datas:
+								if data_.village == village:
+									data_.arenas += 1
+									data_.roads -= 1
+									
+									if data_.arenas == n:
+										data_.village.flag.arenas = true
+										datas.erase(data_)
+					else:
+						datas.erase(data)
+						success = false
+			
+		#relocate_roads()
 		
-		datas = []
+#		for village in arr.village:
+#			if village.flag.arenas:
+#				var value = 0
+#
+#				for road in village.arr.road:
+#					if road.flag.arena:
+#						value += 1
+#				if value != 2:
+#					pint(value)
+		for road in arr.road:
+			if road.flag.arena:
+				var input = {}
+				input.road = road
+				var arena = Classes_Arena.Arena.new(input)
+				arr.arena.append(arena)
+
+	func spread_cohorts():
+		for village in arr.village:
+			for arena in village.arr.arena:
+				for sect in village.arr.sect:
+					var input = {}
+					input.sect = input.sect
+					input.arena = input.arena
+					var cohort = Classes_Arena.Cohort.new(input)
+					arena.arr.cohort.append(cohort)
+				
+
+	func reset_arenas():
+		for village in arr.village:
+			village.flag.arenas = false
+			
+		for road in arr.road:
+			road.flag.arena = false
+
+	func relocate_roads():
+		var datas = []
 		
 		for village in arr.village:
 			if !village.flag.arenas:
@@ -812,11 +862,11 @@ class Map:
 				
 				datas.append(data)
 		
-		print(datas)
+		#pint(datas)
 		
 		for data in datas:
 			if data.arenas == 0:
-				print('!')
+				print('Single arena fail')
 				var neighbors = []
 				var options = []
 				
@@ -841,14 +891,45 @@ class Map:
 				
 				for village in road.arr.village:
 					for road_ in village.arr.road:
-						if road_.arr.village.has(data):
+						if road_.arr.village.has(data.village):
 							road_.set_arena(true)
 				
 				data.village.flag.arenas = true
 				datas.erase(data)
 			
 			if !data.village.flag.interior:
-				pass
+				push_to_interior(data.village)
+
+	func push_to_interior(village_):
+		var data = {}
+		data.min = village_.num.to_center
+		data.village = null
+		data.road = null
+		data.road_ = null
+		
+		for road in village_.arr.road:
+			if !road.flag.arena:
+				var neighbor = road.arr.village.front()
+				
+				if neighbor == village_:
+					neighbor = road.arr.village.back()
+				
+				for road_ in neighbor.arr.road:
+					if road_.flag.arena:
+						var village = road_.arr.village.front()
+						
+						if village == village_:
+							village = road_.arr.village.back()
+						
+						if data.min > village.num.to_center && village.flag.arenas:
+							data.min = neighbor.num.to_center
+							data.village = village
+							data.road = road
+							data.road_ = road_
+				
+		data.road_.set_arena(false)
+		data.road.set_arena(true)
+		#pint(data)
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.map.cols && grid_.y >= 0 && grid_.y < Global.num.map.rows
