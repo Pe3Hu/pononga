@@ -7,7 +7,19 @@ func _draw():
 			if vicinity.flag.visiable:
 				draw_polygon(vicinity.arr.point, PoolColorArray([vicinity.color.background]))
 			if vicinity.flag.capital:
-				draw_circle(vicinity.vec.center, Global.num.vicinity.a/4, Color(0.0, 0.0, 0.0))
+				var color = Color.black
+				
+				if vicinity.obj.village.flag.arenas:
+					color = Color.white
+				
+				#if vicinity.obj.village.flag.interior:
+				#	color  = Color.blue
+	
+					
+				draw_circle(vicinity.vec.center, Global.num.vicinity.a/4, color)
+				
+	for road in Global.obj.map.arr.road:
+			draw_line(road.arr.point.front(), road.arr.point.back(), road.color.line, Global.num.road.width)
 
 func _process(delta):
 	update()

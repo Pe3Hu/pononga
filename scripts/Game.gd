@@ -2,8 +2,7 @@ extends Node
 
 
 func _ready():
-	Global.obj.map = Classes.Map.new()
-	
+	Global.obj.map = Classes_Map.Map.new()
 #	Global.rng.randomize()
 #	var index_r = Global.rng.randi_range(0, options.size()-1)
 #	datas.sort_custom(Sorter, "sort_ascending")
@@ -16,7 +15,7 @@ func _ready():
 func _input(event):
 	if event is InputEventMouseButton:
 		if Global.flag.click:
-			Global.next_rank()
+			#Global.next_rank()
 			Global.flag.click = !Global.flag.click
 		else:
 			Global.flag.click = !Global.flag.click

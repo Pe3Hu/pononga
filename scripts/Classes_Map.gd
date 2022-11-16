@@ -22,6 +22,7 @@ class Vicinity:
 		flag.free = true
 		flag.visiable = true
 		flag.capital = false
+		obj.village = null
 		set_points()
 		num.ring = get_ring(Vector2(Global.num.map.rows/2,Global.num.map.cols/2))
 		color.background = Color().from_hsv(0,0,1.0) 
@@ -98,24 +99,80 @@ class Region:
 class Village:
 	var num = {}
 	var arr = {}
+	var flag = {}
 	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.village
 		Global.num.primary_key.village += 1
 		arr.vicinity = []
+		arr.neighbor = []
+		arr.sect = []
+		arr.road = []
+		flag.arenas = false
+		flag.interior = false
+		obj.map = input_.map
 		obj.capital = input_.capital
 		obj.capital.flag.capital = true
+		obj.capital.obj.village = self
+		
+		init_sects()
+
+	func init_sects():
+		var input = {}
+		input.map = obj.map
+		var sect = Classes_Arena.Sect.new(input)
+		arr.sect.append(sect)
+
+class Road:
+	var num = {}
+	var arr = {}
+	var flag = {}
+	var color = {}
+
+	func _init(input_):
+		arr.village = input_.villages
+		get_points()
+		flag.cross = false
+		set_arena(false)
+		get_distance()
+
+	func get_points():
+		arr.point = []
+		
+		for village in arr.village:
+			var point = village.obj.capital.vec.center
+			arr.point.append(point)
+
+	func get_distance():
+		var begin = arr.village.front().obj.capital.vec.center
+		var end = arr.village.back().obj.capital.vec.center
+		num.d = begin.distance_to(end)
+
+	func check_straight():
+		var begin = arr.village.front().obj.capital.vec.grid
+		var end = arr.village.back().obj.capital.vec.grid
+		return !flag.cross && (begin.x == end.x || begin.y == end.y)
+
+	func set_arena(flag_):
+		flag.arena = flag_
+		
+		if flag_:
+			color.line = Color.white
+		else:
+			color.line = Color.black
 
 class Map:
 	var num = {}
 	var arr = {}
+	var vec = {}
 	var flag = {}
 
 	func _init():
 		arr.vicinity = []
 		arr.region = []
 		arr.village = []
+		arr.road = []
 		flag.domain = false
 		flag.rank = false
 		init_vicinitys()
@@ -123,6 +180,7 @@ class Map:
 		init_regions()
 		init_sectors()
 		init_villages()
+		init_arenas()
 
 	func init_vicinitys():
 		for _i in Global.num.map.rows:
@@ -131,8 +189,10 @@ class Map:
 			for _j in Global.num.map.cols:
 				var input = {}
 				input.grid = Vector2(_j,_i)
-				var vicinity = Classes.Vicinity.new(input)
+				var vicinity = Classes_Map.Vicinity.new(input)
 				arr.vicinity[_i].append(vicinity)
+		
+		vec.center = Vector2(Global.num.map.cols,Global.num.map.rows)*Global.num.vicinity.a/2 + Global.vec.map
 
 	func init_borderlands():
 		arr.borderland = []
@@ -156,8 +216,8 @@ class Map:
 	func init_regions():
 		init_associates()
 		set_region_neighbors(0)
-		init_region_ranks()
-		#set_4_domains()
+		#init_region_ranks()
+		set_4_domains()
 		#while arr.region.size() < Global.num.region.ranks:
 			#var rank = arr.region.size() - 1
 			
@@ -193,7 +253,7 @@ class Map:
 		var input = {}
 		input.rank = rank
 		input.map = self
-		var region = Classes.Region.new(input)
+		var region = Classes_Map.Region.new(input)
 		arr.region[rank].append(region)
 		var begin = corner_vicinity(unused_)
 		region.add_vicinity(begin)
@@ -334,7 +394,6 @@ class Map:
 		
 		while rank < Global.num.region.ranks-1:
 			flag.rank = false
-			print("______",rank)
 			arr.region.append([])
 			
 			while !flag.rank:
@@ -402,7 +461,7 @@ class Map:
 									
 									if free_regions.has(neighbor) && !regions.has(neighbor):
 										datas_2.append(data)
-							#print("datas_2 :",datas_2.size())
+							
 							if datas_2.size() == 0:
 								print("init_region_ranks fail 0")
 								flag.rank = false
@@ -419,7 +478,7 @@ class Map:
 						var input = {}
 						input.rank = rank+1
 						input.map = self
-						var new_region = Classes.Region.new(input)
+						var new_region = Classes_Map.Region.new(input)
 						
 						if regions.size() != 3:
 							print("init_region_ranks fail 1")
@@ -436,7 +495,7 @@ class Map:
 					var input = {}
 					input.rank = rank+1
 					input.map = self
-					var ununioned_region = Classes.Region.new(input)
+					var ununioned_region = Classes_Map.Region.new(input)
 					
 					for region in ununioned_regions:
 						ununioned_region.add_region(region)
@@ -447,25 +506,9 @@ class Map:
 				
 				if flag.rank:
 					check_rank(rank+1)
-					
-				print(flag.rank,arr.region[rank+1].size())
-			
+				
 			rank += 1
 			set_region_neighbors(rank)
-		
-		#for regions in arr.region:
-		#	print(regions.size())
-		
-		#var sum = 0
-		
-		for _i in arr.region[rank].size():
-			#sum += arr.region[rank][_i].arr.vicinity.size()
-			
-			for vicinity in arr.region[rank][_i].arr.vicinity:
-				var hue = float(_i)/float(arr.region[rank].size())
-				vicinity.color.background = Color().from_hsv(hue,1,1) 
-		
-		#print(sum, "=",Global.num.vicinity.count)
 
 	func set_4_domains():
 		var rank = 0
@@ -478,13 +521,15 @@ class Map:
 				for vicinity in vicinitys:
 					var region = vicinity.arr.region[rank]
 					
-					if region.flag.union && region.arr.domain.size() > 1:
-						Global.rng.randomize()
-						var index_r = Global.rng.randi_range(0, region.arr.domain.size()-1)
-						region.arr.domain = [region.arr.domain[index_r]]
-						
-						for neighbor in region.arr.neighbor:
-							neighbor.update_domain_by(region)
+					#???
+					if region != null:
+						if region.flag.union && region.arr.domain.size() > 1:
+							Global.rng.randomize()
+							var index_r = Global.rng.randi_range(0, region.arr.domain.size()-1)
+							region.arr.domain = [region.arr.domain[index_r]]
+							
+							for neighbor in region.arr.neighbor:
+								neighbor.update_domain_by(region)
 		
 		for region in arr.region[rank]:
 			if region.flag.union:
@@ -565,7 +610,8 @@ class Map:
 			var index_r = Global.rng.randi_range(0, options.size()-1)
 			var input = {}
 			input.capital = options[index_r]
-			var village = Classes.Village.new(input)
+			input.map = self
+			var village = Classes_Map.Village.new(input)
 			arr.village.append(village)
 			
 			var arounds = [input.capital]
@@ -578,6 +624,231 @@ class Map:
 			
 			for around in arounds:
 				options.erase(around)
+		
+		set_village_neighbors()
+
+	func set_village_neighbors():
+		for village in arr.village:
+			var arounds = [village.obj.capital]
+			
+			for _i in Global.num.road.vicinity:
+				for _j in range(arounds.size()-1,-1,-1):
+					for neighbor in arounds[_j].arr.neighbor:
+						if !arounds.has(neighbor):
+							arounds.append(neighbor) 
+			
+			arounds.erase(village.obj.capital)
+			
+			for around in arounds:
+				if around.flag.capital:
+					if !village.arr.neighbor.has(around.obj.village):
+						village.arr.neighbor.append(around.obj.village)
+						around.obj.village.arr.neighbor.append(village)
+						
+			#print(village.arr.neighbor,arounds.size())
+		
+		init_roads()
+
+	func init_roads():
+		for village in arr.village:
+			for neighbor in village.arr.neighbor:
+				if neighbor.num.index > village.num.index:
+					var input = {}
+					input.villages = [village,neighbor]
+					input.map = self
+					var road = Classes_Map.Road.new(input)
+					arr.road.append(road)
+		
+		cut_roads()
+
+	func cut_roads():
+		var datas = []
+		
+		for road in arr.road:
+			var data = {}
+			data.road = road
+			data.value = road.num.d
+			datas.append(data)
+		
+		datas.sort_custom(Sorter, "sort_ascending")
+		#print(datas)
+		var cleans = []
+		
+		for _i in range(datas.size()-1,-1,-1):
+			for _j in range(_i-1,-1,-1):
+				var roads = [datas[_i].road,datas[_j].road]
+				
+				if Global.cross_roads(roads):
+					if roads[0].num.d ==roads[1].num.d:
+						cleans.append(datas[_j].road)
+						#_i -= 1
+					cleans.append(datas[_i].road)
+					#break
+					#roads[0].color.line = Color.white
+		
+		for road in cleans:
+			arr.road.erase(road)
+		
+		for road in arr.road:
+			for village in road.arr.village:
+				village.arr.road.append(road)
+		
+		for road in arr.road:
+			if road.check_straight() && road.num.d >= (Global.num.road.vicinity-1)*Global.num.vicinity.a:
+				arr.road.erase(road)
+		
+		#print(Global.num.road.vicinity-1)#7 too much
+		set_village_interiors()
+
+	func set_village_interiors():
+		for village in arr.village:
+			village.flag.interior = true
+			var x1 = vec.center.x
+			var y1 = vec.center.y
+			var x2 = village.obj.capital.vec.center.x
+			var y2 = village.obj.capital.vec.center.y
+			
+			for road in arr.road:
+				if !road.arr.village.has(village):
+					var x3 = road.arr.village.front().obj.capital.vec.center.x
+					var y3 = road.arr.village.front().obj.capital.vec.center.y
+					var x4 = road.arr.village.back().obj.capital.vec.center.x
+					var y4 = road.arr.village.back().obj.capital.vec.center.y
+					
+					var flag = Global.cross(x1,y1,x2,y2,x3,y3,x4,y4)
+					
+					if flag:
+						village.flag.interior = false
+
+	func init_arenas():
+		var n = 2
+		var datas = []
+		
+		for village in arr.village:
+			var data = {}
+			data.village = village
+			data.roads = village.arr.road.size()
+			data.arenas = 0
+			datas.append(data)
+		
+		while datas.size() > 0:
+			var min_roads = 99
+			var max_arenas = 0
+			
+			for data in datas:
+				if max_arenas < data.arenas:
+					max_arenas = data.arenas
+					
+			for data in datas:
+				if data.arenas == max_arenas:
+					if min_roads > data.roads:
+						min_roads = data.roads
+			
+			var options = []
+			
+			for data in datas:
+				if data.arenas == max_arenas && min_roads == data.roads:
+					options.append(data)
+			
+			Global.rng.randomize()
+			var index_r = Global.rng.randi_range(0, options.size()-1)
+			var data = options[index_r]
+			var fail = false
+			
+			while data.arenas < n && !fail:
+				var datas_ = []
+				
+				for road in data.village.arr.road:
+					if !road.flag.arena && !road.arr.village.front().flag.arenas && !road.arr.village.back().flag.arenas:
+						var data_ = {}
+						data_.road = road
+						data_.value = 0
+						var village = road.arr.village.front()
+						
+						if village == data.village:
+							village = road.arr.village.back()
+						
+						for road_ in village.arr.road:
+							var village_ = road_.arr.village.front()
+							
+							if village_ == village:
+								village_ = road_.arr.village.back()
+								
+							if !village_.flag.arenas:
+								data_.value += 1
+						
+						datas_.append(data_)
+				
+				if datas_.size() > 0:
+					datas_.sort_custom(Sorter, "sort_ascending")
+					
+					var road = datas_[0].road
+					road.set_arena(true)
+					
+					for village in road.arr.village:
+						for data_ in datas:
+							if data_.village == village:
+								data_.arenas += 1
+								data_.roads -= 1
+								
+								if data_.arenas == n:
+									data_.village.flag.arenas = true
+									datas.erase(data_)
+				else:
+					datas.erase(data)
+					fail = true
+		
+		datas = []
+		
+		for village in arr.village:
+			if !village.flag.arenas:
+				var data = {}
+				data.arenas = 0
+				data.village = village
+			
+				for road in village.arr.road:
+					if road.flag.arena:
+						data.arenas += 1
+				
+				datas.append(data)
+		
+		print(datas)
+		
+		for data in datas:
+			if data.arenas == 0:
+				print('!')
+				var neighbors = []
+				var options = []
+				
+				for neighbor in data.village.arr.neighbor:
+					neighbors.append(neighbor)
+					
+				for _i in neighbors.size():
+					for road in neighbors[_i].arr.road:
+						if road.flag.arena:
+							var neighbor = road.arr.village.front()
+							
+							if neighbors[_i] == road.arr.village.front():
+								neighbor = road.arr.village.back()
+							
+							if data.village.arr.neighbor.has(neighbor):
+								options.append(road)
+				
+				Global.rng.randomize()
+				var index_r = Global.rng.randi_range(0, options.size()-1)
+				var road = options[index_r]
+				road.set_arena(false)
+				
+				for village in road.arr.village:
+					for road_ in village.arr.road:
+						if road_.arr.village.has(data):
+							road_.set_arena(true)
+				
+				data.village.flag.arenas = true
+				datas.erase(data)
+			
+			if !data.village.flag.interior:
+				pass
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.map.cols && grid_.y >= 0 && grid_.y < Global.num.map.rows

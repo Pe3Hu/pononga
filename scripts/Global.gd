@@ -38,13 +38,24 @@ func init_num():
 	num.village.estrangement = 3
 	
 	num.rank = {}
-	num.rank.current = num.region.ranks-1
+	num.rank.current = num.region.ranks-2
+	
+	num.road = {}
+	num.road.width = 2
+	num.road.vicinity = num.village.estrangement*2+1
+	
+	num.span = {}
+	num.span.bottleneck = 3
+	
 
 func init_primary_key():
 	num.primary_key = {}
 	num.primary_key.vicinity = 0
 	num.primary_key.region = 0
 	num.primary_key.village = 0
+	num.primary_key.cultivator = 0
+	num.primary_key.sect = 0
+	num.primary_key.arena = 0
 
 func init_dict():
 	init_window_size()
@@ -74,6 +85,7 @@ func init_arr():
 		Vector2(-1, 0)
 	]
 	arr.domain = [0,1,2,3]
+	arr.elevation = ["Fossa","Hill","Peak"]
 
 func init_node():
 	node.TimeBar = get_node("/root/Game/TimeBar") 
@@ -84,7 +96,7 @@ func init_flag():
 	flag.stop = false
 
 func init_vec():
-	vec.map = dict.window_size.center - Vector2(num.map.cols*num.vicinity.a/2,num.map.rows*num.vicinity.a/2)
+	vec.map = dict.window_size.center - Vector2(num.map.cols,num.map.rows)*num.vicinity.a/2
 
 func _ready():
 	init_dict()
@@ -121,3 +133,54 @@ func next_rank():
 		for vicinity in obj.map.arr.region[num.rank.current][_i].arr.vicinity:
 			var hue = float(_i)/float(obj.map.arr.region[num.rank.current].size())
 			vicinity.color.background = Color().from_hsv(hue,1,1) 
+
+func cross_roads(roads_):
+	var capitals = []
+	
+	for road in roads_:
+		for village in road.arr.village:
+			if !capitals.has(village.obj.capital):
+				capitals.append(village.obj.capital)
+	
+	if capitals.size() != 4:
+		#print(capitals.size())
+		return false
+	
+	var x1 = roads_[0].arr.village.front().obj.capital.vec.center.x
+	var y1 = roads_[0].arr.village.front().obj.capital.vec.center.y
+	var x2 = roads_[0].arr.village.back().obj.capital.vec.center.x
+	var y2 = roads_[0].arr.village.back().obj.capital.vec.center.y
+	var x3 = roads_[1].arr.village.front().obj.capital.vec.center.x
+	var y3 = roads_[1].arr.village.front().obj.capital.vec.center.y
+	var x4 = roads_[1].arr.village.back().obj.capital.vec.center.x
+	var y4 = roads_[1].arr.village.back().obj.capital.vec.center.y
+	
+	if cross(x1,y1,x2,y2,x3,y3,x4,y4):
+		roads_[0].flag.cross = true
+		roads_[1].flag.cross = true
+		return true
+	else:
+		return false
+
+func cross(x1_,y1_,x2_,y2_,x3_,y3_,x4_,y4_):
+	var n = -1
+	
+	if y2_ - y1_ != 0:
+		var q = (x2_ - x1_) / (y1_ - y2_)
+		var sn = (x3_ - x4_) + (y3_ - y4_) * q
+		if !sn:
+			return false
+		var fn = (x3_ - x1_) + (y3_ - y1_) * q
+		n = fn / sn
+	else:
+		if !(y3_ - y4_):
+			return false
+		n = (y3_ - y1_) / (y3_ - y4_)
+		
+	var x = x3_ + (x4_ - x3_) * n
+	var y = y3_ + (y4_ - y3_) * n
+	
+	var first = min(x1_,x2_) <= x && x <= max(x1_,x2_) && min(y1_,y2_) <= y && y <= max(y1_,y2_)
+	var second = min(x3_,x4_) <= x && x <= max(x3_,x4_) && min(y3_,y4_) <= y && y <= max(y3_,y4_)
+	
+	return first && second
