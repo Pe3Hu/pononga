@@ -47,6 +47,12 @@ func init_num():
 	num.span = {}
 	num.span.bottleneck = 3
 	
+	num.threat = {}
+	num.threat.base = 1000
+	num.threat.step = 1.1
+	
+	num.priority = {}
+	num.priority.base = 10
 
 func init_primary_key():
 	num.primary_key = {}
@@ -72,6 +78,7 @@ func init_arr():
 	arr.sequence["A000045"] = [89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1]
 	arr.sequence["A000124"] = [7, 11, 16] #, 22, 29, 37, 46, 56, 67, 79, 92, 106, 121, 137, 154, 172, 191, 211]
 	arr.sequence["A001358"] = [4, 6, 9, 10, 14, 15, 21, 22, 25, 26]
+	arr.sequence["B000000"] = [2, 3, 5, 8, 10, 13, 17, 20, 24, 29, 33, 38]
 	arr.point = [
 		Vector2( 1,-1),
 		Vector2( 1, 1),
@@ -86,6 +93,7 @@ func init_arr():
 	]
 	arr.domain = [0,1,2,3]
 	arr.elevation = ["Fossa","Hill","Peak"]
+	arr.priority = ["Abstinence","Survival","Balance","Prepotence"]
 
 func init_node():
 	node.TimeBar = get_node("/root/Game/TimeBar") 

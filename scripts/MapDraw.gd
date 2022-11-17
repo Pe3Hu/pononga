@@ -14,7 +14,6 @@ func _draw():
 				
 				#if vicinity.obj.village.flag.interior:
 				#	color  = Color.blue
-	
 					
 				draw_circle(vicinity.vec.center, Global.num.vicinity.a/4, color)
 				

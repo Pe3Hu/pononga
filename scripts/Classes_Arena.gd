@@ -3,6 +3,7 @@ extends Node
 
 class Cultivator:
 	var num = {}
+	var flag = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.cultivator
@@ -27,6 +28,7 @@ class Cultivator:
 		num.defense.factor = 0
 		num.recovery = {}
 		num.recovery.health = 1
+		flag.alarm = false
 
 	func jump_stages(value_):
 		for _i in value_:

@@ -42,6 +42,10 @@ class Vicinity:
 			var vertex = point * Global.num.vicinity.a/2 + vec.center
 			arr.point.append(vertex)
 
+	func reset():
+		flag.capital = false
+		obj.village = null
+
 class Region:
 	var num = {}
 	var arr = {}
@@ -84,7 +88,6 @@ class Region:
 					for neighbor in arr.neighbor:
 						neighbor.update_domain_by(self)
 			else:
-				print("update_domain error 1",arr.domain)
 				obj.map.flag.domain = false
 
 	func add_region(region_):
@@ -100,11 +103,14 @@ class Village:
 	var num = {}
 	var arr = {}
 	var flag = {}
+	var dict = {}
 	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.village
 		Global.num.primary_key.village += 1
+		num.threat = -1
+		num.guardians = 0
 		arr.vicinity = []
 		arr.neighbor = []
 		arr.sect = []
@@ -116,17 +122,42 @@ class Village:
 		obj.capital = input_.capital
 		obj.capital.flag.capital = true
 		obj.capital.obj.village = self
-		get_to_center()
+		init_nums()
 		init_sects()
 
-	func get_to_center():
+	func init_nums():
 		num.to_center = obj.capital.vec.center.distance_to(obj.map.vec.center)
+		var grid = obj.capital.vec.grid
+		num.to_border = min(min(grid.x,grid.y),min(Global.num.map.cols-1-grid.x,Global.num.map.rows-1-grid.y))
 
 	func init_sects():
 		var input = {}
 		input.map = obj.map
 		var sect = Classes_Arena.Sect.new(input)
 		arr.sect.append(sect)
+
+	func set_prioritys():
+		dict.priority = {}
+		
+		for priority in Global.arr.priority:
+			dict.priority[priority] = Global.num.priority.base
+		
+		
+
+	func alarm():
+		var options = []
+		
+		for sect in arr.sect:
+			for cultivator in sect.arr.cultivator:
+				options.append(cultivator)
+		
+		while num.guardians < num.threat:
+			
+			Global.rng.randomize()
+			var index_r = Global.rng.randi_range(0, options.size()-1)
+			var guardian  = options.pop_at(index_r)
+			num.guardians += Global.arr.sequence["B000000"][guardian.num.stage.current]
+			guardian.flag.alarm = true
 
 class Road:
 	var num = {}
@@ -173,13 +204,10 @@ class Map:
 	var flag = {}
 
 	func _init():
-		arr.vicinity = []
-		arr.region = []
-		arr.village = []
-		arr.road = []
-		arr.arena = []
+		num.threat = Global.num.threat.base
 		flag.domain = false
 		flag.rank = false
+		flag.success = true
 		init_vicinitys()
 		init_borderlands()
 		init_regions()
@@ -187,8 +215,12 @@ class Map:
 		init_villages()
 		init_roads()
 		init_arenas()
+		set_threats()
+		init_threats_alarm()
 
 	func init_vicinitys():
+		arr.vicinity = []
+		
 		for _i in Global.num.map.rows:
 			arr.vicinity.append([])
 			
@@ -220,6 +252,8 @@ class Map:
 			child_vicinity_.arr.delimited.append(parent_vicinity_)
 
 	func init_regions():
+		arr.region = []
+		
 		init_associates()
 		set_region_neighbors(0)
 		init_region_ranks()
@@ -238,7 +272,6 @@ class Map:
 			for vicinity in vicinitys:
 				unused.append(vicinity)
 		
-		#loop checked
 		while unused.size() > Global.num.associate.size:
 			generate_associate(unused)
 		
@@ -267,7 +300,6 @@ class Map:
 		var vicinitys = [begin]
 		var flag = true
 		
-		#loop checked
 		while vicinitys.size() < Global.num.associate.size && flag:
 			var options = []
 			
@@ -400,127 +432,124 @@ class Map:
 				for vicinity in region.arr.vicinity:
 					ununioned_vicinitys.append(vicinity) 
 		
-		#loop checked
-		while rank < Global.num.region.ranks-1:
-			flag.rank = false
+		while rank < Global.num.region.ranks-1 && flag.success:
 			arr.region.append([])
+			var free_regions = []
+			var ununioned_regions = []
+			arr.region[rank+1] = []
 			
-			##var counter = 0 && counter < 1000: counter +=1
-			var counter = 0
-			while !flag.rank && counter < 1000:
-				counter +=1
-				flag.rank = true
-				var free_regions = []
-				var ununioned_regions = []
-				arr.region[rank+1] = []
-				
-				for region in arr.region[rank]:
-					if region.flag.union:
-						free_regions.append(region)
-					else:
-						ununioned_regions.append(region)
-				
-				while free_regions.size() % Global.num.region.base != 0:
-					var options = []
-					
-					for region in ununioned_regions:
-						for neighbor in region.arr.neighbor:
-							if free_regions.has(neighbor):
-								options.append(neighbor)
-					
-					Global.rng.randomize()
-					var index_r = Global.rng.randi_range(0, options.size()-1)
-					var region = options[index_r]
-					free_regions.erase(region)
+			for region in arr.region[rank]:
+				if region.flag.union:
+					free_regions.append(region)
+				else:
 					ununioned_regions.append(region)
+			
+			while free_regions.size() % Global.num.region.base != 0:
+				var options = []
 				
-				while free_regions.size() >= Global.num.region.base && flag.rank:
-					var datas = []
+				for region in ununioned_regions:
+					for neighbor in region.arr.neighbor:
+						if free_regions.has(neighbor):
+							options.append(neighbor)
+				
+				Global.rng.randomize()
+				var index_r = Global.rng.randi_range(0, options.size()-1)
+				var region = options[index_r]
+				free_regions.erase(region)
+				ununioned_regions.append(region)
+			
+			while free_regions.size() >= Global.num.region.base && flag.rank:
+				var datas = []
+				
+				for region in free_regions:
+					var data = {}
+					data.value = 0
+					data.region = region
 					
-					for region in free_regions:
-						var data = {}
-						data.value = 0
-						data.region = region
-						
-						for neighbor in region.arr.neighbor:
-							if free_regions.has(neighbor):
-								data.value += 1
-						
+					for neighbor in region.arr.neighbor:
+						if free_regions.has(neighbor):
+							data.value += 1
+							
+					if data.value > 0:
 						datas.append(data)
-						
-					datas.sort_custom(Sorter, "sort_ascending")
-					var options = []
+					else:
+						flag.success = false
 					
-					for data in datas:
-						if data.value == datas.front().value:
-							options.append(data)
+				datas.sort_custom(Sorter, "sort_ascending")
+				var options = []
+				
+				for data in datas:
+					if data.value == datas.front().value:
+						options.append(data)
+				
+				Global.rng.randomize()
+				var index_r = Global.rng.randi_range(0, options.size()-1)
+				
+				if options[index_r].value > 0:
+					var regions = [options[index_r].region]
+					free_regions.erase(regions.back())
 					
-					Global.rng.randomize()
-					var index_r = Global.rng.randi_range(0, options.size()-1)
-					
-					if options[index_r].value > 0:
-						var regions = [options[index_r].region]
-						free_regions.erase(regions.back())
-						
-						while Global.num.region.base > regions.size() && flag.rank:
-							var datas_2 = []
-							
-							for region in regions:
-								for neighbor in region.arr.neighbor:
-									var data = {}
-									data.value = 0
-									data.region = neighbor
-									
-									if free_regions.has(neighbor) && !regions.has(neighbor):
-										datas_2.append(data)
-							
-							if datas_2.size() == 0:
-								print("init_region_ranks fail 0")
-								flag.rank = false
-							else:
-								for data_2 in datas_2:
-									for neighbor in data_2.region.arr.neighbor:
-										if free_regions.has(neighbor) && !regions.has(neighbor):
-											data_2.value += 1
-								
-								datas_2.sort_custom(Sorter, "sort_ascending")
-								regions.append(datas_2.front().region)
-								free_regions.erase(datas_2.front().region)
-						
-						var input = {}
-						input.rank = rank+1
-						input.map = self
-						var new_region = Classes_Map.Region.new(input)
-						
-						if regions.size() != 3:
-							print("init_region_ranks fail 1")
-							flag.rank = false
+					while Global.num.region.base > regions.size() && flag.rank:
+						var datas_2 = []
 						
 						for region in regions:
-							new_region.add_region(region)
+							for neighbor in region.arr.neighbor:
+								var data = {}
+								data.value = 0
+								data.region = neighbor
+								
+								if free_regions.has(neighbor) && !regions.has(neighbor):
+									datas_2.append(data)
+						
+						if datas_2.size() == 0:
+							#pint("init_region_ranks fail 0")
+							flag.rank = false
+						else:
+							for data_2 in datas_2:
+								for neighbor in data_2.region.arr.neighbor:
+									if free_regions.has(neighbor) && !regions.has(neighbor):
+										data_2.value += 1
 							
-						arr.region[rank+1].append(new_region)
-					else:
-						datas = []
-				
-				if ununioned_regions.size() > 0:
+							datas_2.sort_custom(Sorter, "sort_ascending")
+							regions.append(datas_2.front().region)
+							free_regions.erase(datas_2.front().region)
+					
 					var input = {}
 					input.rank = rank+1
 					input.map = self
-					var ununioned_region = Classes_Map.Region.new(input)
+					var new_region = Classes_Map.Region.new(input)
 					
-					for region in ununioned_regions:
-						ununioned_region.add_region(region)
+					if regions.size() != 3:
+						#rint("init_region_ranks fail 1")
+						flag.rank = false
+					
+					for region in regions:
+						new_region.add_region(region)
 						
-					ununioned_region.flag.union = false
+					arr.region[rank+1].append(new_region)
+				else:
+					datas = []
+			
+			if ununioned_regions.size() > 0:
+				var input = {}
+				input.rank = rank+1
+				input.map = self
+				var ununioned_region = Classes_Map.Region.new(input)
 				
-					arr.region[rank+1].append(ununioned_region)
-				
-				if flag.rank:
-					check_rank(rank+1)
-				
+				for region in ununioned_regions:
+					ununioned_region.add_region(region)
+					
+				ununioned_region.flag.union = false
+			
+				arr.region[rank+1].append(ununioned_region)
+			
+			if flag.rank:
+				check_rank(rank+1)
+		
 			rank += 1
 			set_region_neighbors(rank)
+		
+		check_reset()
 
 	func set_4_domains():
 		var rank = 0
@@ -546,8 +575,6 @@ class Map:
 		for region in arr.region[rank]:
 			if region.flag.union:
 				domains[region.arr.domain.front()] += 1
-		
-		print(domains,float(arr.region[rank].size())/4)
 		
 		for region in arr.region[rank]:
 			for vicinity in region.arr.vicinity:
@@ -606,6 +633,7 @@ class Map:
 				vicinity.num.sector = ring_to_sector[vicinity.num.ring]
 
 	func init_villages():
+		arr.village = []
 		var options = []
 		var sectors = []
 		
@@ -655,10 +683,10 @@ class Map:
 					if !village.arr.neighbor.has(around.obj.village):
 						village.arr.neighbor.append(around.obj.village)
 						around.obj.village.arr.neighbor.append(village)
-						
-			#rint(illage.arr.neighbor,arounds.size())
 
 	func init_roads():
+		arr.road = []
+		
 		for village in arr.village:
 			for neighbor in village.arr.neighbor:
 				if neighbor.num.index > village.num.index:
@@ -730,104 +758,151 @@ class Map:
 						village.flag.interior = false
 
 	func init_arenas():
+		arr.arena = []
+		
 		var n = 2
-		var success = false
+		var datas = []
+		reset_arenas()
+	
+		for village in arr.village:
+			var data = {}
+			data.village = village
+			data.roads = village.arr.road.size()
+			data.arenas = 0
+			datas.append(data)
 		
-		while !success:
-			success = true
-			var datas = []
-			reset_arenas()
-		
-			for village in arr.village:
-				var data = {}
-				data.village = village
-				data.roads = village.arr.road.size()
-				data.arenas = 0
-				datas.append(data)
+		while datas.size() > 0:
+			var min_roads = 99
+			var max_arenas = 0
 			
-			while datas.size() > 0 && success:
-				var min_roads = 99
-				var max_arenas = 0
-				
-				for data in datas:
-					if max_arenas < data.arenas:
-						max_arenas = data.arenas
-						
-				for data in datas:
-					if data.arenas == max_arenas:
-						if min_roads > data.roads:
-							min_roads = data.roads
-				
-				var options = []
-				
-				for data in datas:
-					if data.arenas == max_arenas && min_roads == data.roads:
-						options.append(data)
-				
-				Global.rng.randomize()
-				var index_r = Global.rng.randi_range(0, options.size()-1)
-				var data = options[index_r]
-				
-				while data.arenas < n && success:
-					var datas_ = []
+			for data in datas:
+				if max_arenas < data.arenas:
+					max_arenas = data.arenas
 					
-					for road in data.village.arr.road:
-						if !road.flag.arena && !road.arr.village.front().flag.arenas && !road.arr.village.back().flag.arenas:
-							var data_ = {}
-							data_.road = road
-							data_.value = 0
-							var village = road.arr.village.front()
+			for data in datas:
+				if data.arenas == max_arenas:
+					if min_roads > data.roads:
+						min_roads = data.roads
+			
+			var options = []
+			
+			for data in datas:
+				if data.arenas == max_arenas && min_roads == data.roads:
+					options.append(data)
+			
+			Global.rng.randomize()
+			var index_r = Global.rng.randi_range(0, options.size()-1)
+			var data = options[index_r]
+			
+			while data.arenas < n && flag.success:
+				var datas_ = []
+				
+				for road in data.village.arr.road:
+					if !road.flag.arena && !road.arr.village.front().flag.arenas && !road.arr.village.back().flag.arenas:
+						var data_ = {}
+						data_.road = road
+						data_.value = 0
+						var village = road.arr.village.front()
+						
+						if village == data.village:
+							village = road.arr.village.back()
+						
+						for road_ in village.arr.road:
+							var village_ = road_.arr.village.front()
 							
-							if village == data.village:
-								village = road.arr.village.back()
-							
-							for road_ in village.arr.road:
-								var village_ = road_.arr.village.front()
+							if village_ == village:
+								village_ = road_.arr.village.back()
 								
-								if village_ == village:
-									village_ = road_.arr.village.back()
-									
-								if !village_.flag.arenas:
-									data_.value += 1
-							
-							datas_.append(data_)
+							if !village_.flag.arenas:
+								data_.value += 1
+						
+						datas_.append(data_)
+				
+				if datas_.size() > 0:
+					datas_.sort_custom(Sorter, "sort_ascending")
 					
-					if datas_.size() > 0:
-						datas_.sort_custom(Sorter, "sort_ascending")
-						
-						var road = datas_[0].road
-						road.set_arena(true)
-						
-						for village in road.arr.village:
-							for data_ in datas:
-								if data_.village == village:
-									data_.arenas += 1
-									data_.roads -= 1
-									
-									if data_.arenas == n:
-										data_.village.flag.arenas = true
-										datas.erase(data_)
-					else:
-						datas.erase(data)
-						success = false
-			
-		#relocate_roads()
+					var road = datas_[0].road
+					road.set_arena(true)
+					
+					for village in road.arr.village:
+						for data_ in datas:
+							if data_.village == village:
+								data_.arenas += 1
+								data_.roads -= 1
+								
+								if data_.arenas == n:
+									data_.village.flag.arenas = true
+									datas.erase(data_)
+				else:
+					datas = []
+					flag.success = false
 		
-#		for village in arr.village:
-#			if village.flag.arenas:
-#				var value = 0
-#
-#				for road in village.arr.road:
-#					if road.flag.arena:
-#						value += 1
-#				if value != 2:
-#					pint(value)
+		check_reset()
+		
 		for road in arr.road:
 			if road.flag.arena:
 				var input = {}
 				input.road = road
 				var arena = Classes_Arena.Arena.new(input)
 				arr.arena.append(arena)
+
+	func reinit_villages():
+		for village in arr.village:
+			village.obj.capital.reset()
+			village.queue_free()
+		
+		init_villages()
+
+	func reset_arenas():
+		for village in arr.village:
+			village.flag.arenas = false
+			
+		for road in arr.road:
+			road.flag.arena = false
+
+	func set_threats():
+		var datas = []
+		var duplicates = []
+		
+		for village in arr.village:
+			var data = {}
+			data.village = village
+			data.value = village.num.to_border
+			
+			datas.append(data)
+		
+		datas.sort_custom(Sorter, "sort_descending")
+		
+		for data in datas:
+			if !duplicates.has(data.value):
+				duplicates.append(data.value)
+		
+		var threats = []
+		var total = 0
+		
+		for data in datas:
+			data.threat = duplicates.find(data.value)/2+1
+			total += data.threat
+		
+		var part = ceil(float(num.threat)/total)
+		var cup = part/3
+		var total_2 = 0
+		
+		for _i in datas.size():
+			datas[_i].threat *= part 
+			
+			if _i > 0:
+				Global.rng.randomize()
+				var shift = Global.rng.randi_range(-cup,cup)
+				datas[_i-1].threat += shift
+				datas[_i].threat -= shift
+		
+		for data in datas:
+			data.village.num.threat = data.threat
+
+	func init_threats_alarm():
+		for village in arr.village:
+			village.alarm()
 
 	func spread_cohorts():
 		for village in arr.village:
@@ -838,98 +913,10 @@ class Map:
 					input.arena = input.arena
 					var cohort = Classes_Arena.Cohort.new(input)
 					arena.arr.cohort.append(cohort)
-				
-
-	func reset_arenas():
-		for village in arr.village:
-			village.flag.arenas = false
-			
-		for road in arr.road:
-			road.flag.arena = false
-
-	func relocate_roads():
-		var datas = []
 		
 		for village in arr.village:
-			if !village.flag.arenas:
-				var data = {}
-				data.arenas = 0
-				data.village = village
-			
-				for road in village.arr.road:
-					if road.flag.arena:
-						data.arenas += 1
-				
-				datas.append(data)
-		
-		#pint(datas)
-		
-		for data in datas:
-			if data.arenas == 0:
-				print('Single arena fail')
-				var neighbors = []
-				var options = []
-				
-				for neighbor in data.village.arr.neighbor:
-					neighbors.append(neighbor)
-					
-				for _i in neighbors.size():
-					for road in neighbors[_i].arr.road:
-						if road.flag.arena:
-							var neighbor = road.arr.village.front()
-							
-							if neighbors[_i] == road.arr.village.front():
-								neighbor = road.arr.village.back()
-							
-							if data.village.arr.neighbor.has(neighbor):
-								options.append(road)
-				
-				Global.rng.randomize()
-				var index_r = Global.rng.randi_range(0, options.size()-1)
-				var road = options[index_r]
-				road.set_arena(false)
-				
-				for village in road.arr.village:
-					for road_ in village.arr.road:
-						if road_.arr.village.has(data.village):
-							road_.set_arena(true)
-				
-				data.village.flag.arenas = true
-				datas.erase(data)
-			
-			if !data.village.flag.interior:
-				push_to_interior(data.village)
-
-	func push_to_interior(village_):
-		var data = {}
-		data.min = village_.num.to_center
-		data.village = null
-		data.road = null
-		data.road_ = null
-		
-		for road in village_.arr.road:
-			if !road.flag.arena:
-				var neighbor = road.arr.village.front()
-				
-				if neighbor == village_:
-					neighbor = road.arr.village.back()
-				
-				for road_ in neighbor.arr.road:
-					if road_.flag.arena:
-						var village = road_.arr.village.front()
-						
-						if village == village_:
-							village = road_.arr.village.back()
-						
-						if data.min > village.num.to_center && village.flag.arenas:
-							data.min = neighbor.num.to_center
-							data.village = village
-							data.road = road
-							data.road_ = road_
-				
-		data.road_.set_arena(false)
-		data.road.set_arena(true)
-		#pint(data)
+			for arena in village.arr.arena:
+				pass
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.map.cols && grid_.y >= 0 && grid_.y < Global.num.map.rows
@@ -942,6 +929,20 @@ class Map:
 				sum += 1
 	
 		flag.rank = sum == Global.num.vicinity.count
+
+	func check_reset():
+		if !flag.success:
+#			for arr_ in arr.keys():
+#				if arr_ != 'vicinity' && arr_ != 'region':
+#					for data in arr[arr_]:
+#						data.queue_free()
+#				else:
+#					for datas in arr[arr_]:
+#						for data in datas:
+#							data.queue_free()
+			arr = []
+			
+			_init()
 
 class Sorter:
 	static func sort_ascending(a, b):
