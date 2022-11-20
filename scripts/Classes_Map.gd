@@ -124,6 +124,8 @@ class Village:
 		obj.capital.obj.village = self
 		init_nums()
 		init_sects()
+		num.power = {}
+		get_total_power()
 
 	func init_nums():
 		num.to_center = obj.capital.vec.center.distance_to(obj.map.vec.center)
@@ -132,7 +134,7 @@ class Village:
 
 	func init_sects():
 		var input = {}
-		input.map = obj.map
+		input.village = self
 		var sect = Classes_Arena.Sect.new(input)
 		arr.sect.append(sect)
 
@@ -141,8 +143,21 @@ class Village:
 		
 		for priority in Global.arr.priority:
 			dict.priority[priority] = Global.num.priority.base
+
+	func get_total_power():
+		num.power.total = 0
 		
+		for sect in arr.sect:
+			for cultivator in sect.arr.cultivator:
+				num.power.total += cultivator.num.power.current
+
+	func get_unalarmed_power():
+		num.power.unalarmed = 0
 		
+		for sect in arr.sect:
+			for cultivator in sect.arr.cultivator:
+				if !cultivator.flag.alarm:
+					num.power.unalarmed += cultivator.num.power.current
 
 	func alarm():
 		var options = []
@@ -151,8 +166,7 @@ class Village:
 			for cultivator in sect.arr.cultivator:
 				options.append(cultivator)
 		
-		while num.guardians < num.threat:
-			
+		while num.guardians < num.threat*obj.map.num.round:
 			Global.rng.randomize()
 			var index_r = Global.rng.randi_range(0, options.size()-1)
 			var guardian  = options.pop_at(index_r)
@@ -205,6 +219,7 @@ class Map:
 
 	func _init():
 		num.threat = Global.num.threat.base
+		num.round = 1
 		flag.domain = false
 		flag.rank = false
 		flag.success = true
@@ -215,8 +230,11 @@ class Map:
 		init_villages()
 		init_roads()
 		init_arenas()
-		set_threats()
-		init_threats_alarm()
+		
+		if flag.success:
+			set_threats()
+			init_threats_alarm()
+			spread_cohorts()
 
 	func init_vicinitys():
 		arr.vicinity = []
@@ -884,9 +902,9 @@ class Map:
 			data.threat = duplicates.find(data.value)/2+1
 			total += data.threat
 		
-		var part = ceil(float(num.threat)/total)
+		var factor = 1#000
+		var part = ceil(float(num.threat)/total)*factor
 		var cup = part/3
-		var total_2 = 0
 		
 		for _i in datas.size():
 			datas[_i].threat *= part 
@@ -898,6 +916,7 @@ class Map:
 				datas[_i].threat -= shift
 		
 		for data in datas:
+			#print(data.threat)
 			data.village.num.threat = data.threat
 
 	func init_threats_alarm():
@@ -906,17 +925,83 @@ class Map:
 
 	func spread_cohorts():
 		for village in arr.village:
+			village.get_unalarmed_power()
+			
 			for arena in village.arr.arena:
 				for sect in village.arr.sect:
 					var input = {}
-					input.sect = input.sect
-					input.arena = input.arena
+					input.sect = sect
+					input.arena = arena
 					var cohort = Classes_Arena.Cohort.new(input)
-					arena.arr.cohort.append(cohort)
+					arena.dict.cohort[cohort.obj.sect.obj.village].append(cohort)
 		
 		for village in arr.village:
+			village.dict.ratio = {}
+			var total = 0
+			
 			for arena in village.arr.arena:
-				pass
+				#if only one rival
+				var rival = arena.get_rivals(village).front()
+				village.dict.ratio[rival] = rival.num.power.unalarmed
+			
+			var one = 0.0
+			var total_2 = 0
+			
+			for rival in village.dict.ratio.keys():
+				total_2 += village.dict.ratio[rival]
+				
+			for rival in village.dict.ratio.keys():
+				village.dict.ratio[rival] = float(village.dict.ratio[rival])/total_2
+		
+		var laps = {}
+		laps.current = 0
+		laps.max = 1 
+		
+		while laps.current < laps.max:
+			start_lap()
+			laps.current += 1
+			
+
+	func start_lap():
+		for village in arr.village:
+			var troop = {}
+			troop.min = Global.num.troop.size*village.dict.ratio.keys().size()
+			troop.current = 0
+			var options = []
+			
+			for sect in village.arr.sect:
+				for cultivator in sect.arr.cultivator:
+					if !cultivator.flag.alarm && !cultivator.flag.cohort:
+						options.append(cultivator)
+			
+			if options.size() >= troop.min:
+				var powers = []
+				var troops = []
+				var indexs = []
+				
+				for _i in village.dict.ratio.keys().size():
+					troops.append([])
+					indexs.append(_i)
+					powers.append(0)
+				
+				while troop.current < troop.min:
+					Global.rng.randomize()
+					var index_r = Global.rng.randi_range(0, options.size()-1)
+					var cultivator = options[index_r]
+					Global.rng.randomize()
+					index_r = Global.rng.randi_range(0, indexs.size()-1)
+					var index = indexs[index_r]
+					troops[index].append(cultivator)
+					powers[index] += cultivator.num.power.current
+					
+					if troops[index].size() == Global.num.troop.size:
+						indexs.erase(index)
+					
+					troop.current += 1
+				
+				print(village, powers)
+			
+			
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.map.cols && grid_.y >= 0 && grid_.y < Global.num.map.rows

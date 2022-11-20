@@ -53,6 +53,12 @@ func init_num():
 	
 	num.priority = {}
 	num.priority.base = 10
+	
+	num.talent = {}
+	num.talent.max = 10
+	
+	num.troop = {}
+	num.troop.size = 3
 
 func init_primary_key():
 	num.primary_key = {}
@@ -93,7 +99,18 @@ func init_arr():
 	]
 	arr.domain = [0,1,2,3]
 	arr.elevation = ["Fossa","Hill","Peak"]
+	arr.elevation
 	arr.priority = ["Abstinence","Survival","Balance","Prepotence"]
+	fill_talent()
+
+func fill_talent():
+	arr.talent = []
+	
+	for _i in num.talent.max:
+		var n = num.talent.max-_i
+		
+		for _j in pow(n,2):
+			arr.talent.append(_i)
 
 func init_node():
 	node.TimeBar = get_node("/root/Game/TimeBar") 

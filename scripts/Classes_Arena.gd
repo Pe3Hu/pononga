@@ -8,6 +8,13 @@ class Cultivator:
 	func _init(input_):
 		num.index = Global.num.primary_key.cultivator
 		Global.num.primary_key.cultivator += 1
+		num.growth = {}
+		set_growth()
+		num.volume = {}
+		num.volume.base = 10
+		num.volume.degree = 3
+		num.volume.factor = 1
+		num.volume.over = 0
 		num.stage = {}
 		num.stage.current = 0
 		num.stage.elevation = 0
@@ -16,6 +23,11 @@ class Cultivator:
 		num.enlightenment = {}
 		num.enlightenment.current = 0
 		jump_stages(input_.stage)
+		calc_volume()
+		num.art = {}
+		num.art.avg = 1
+		num.power = {}
+		calc_power()
 		num.damage = {}
 		num.damage.current = 10
 		num.reload = {}
@@ -29,6 +41,7 @@ class Cultivator:
 		num.recovery = {}
 		num.recovery.health = 1
 		flag.alarm = false
+		flag.cohort = false
 
 	func jump_stages(value_):
 		for _i in value_:
@@ -38,6 +51,8 @@ class Cultivator:
 		num.stage.current += 1
 		unpdate_enlightenment()
 		next_elevation()
+		num.volume.factor += float(num.growth.talent-num.stage.span)/100
+		num.volume.base += 1
 
 	func next_elevation():
 		num.stage.elevation += 1
@@ -79,6 +94,18 @@ class Cultivator:
 		else:
 			num.defense.factor = -(2 - 100/(100+num.defense.current))
 
+	func calc_volume():
+		num.volume.current = pow(num.volume.base, num.volume.degree)*num.volume.factor
+
+	func calc_power():
+		num.power.current = num.volume.current*num.art.avg 
+
+	func set_growth():
+		Global.rng.randomize()
+		var index_r = Global.rng.randi_range(0, Global.arr.talent.size()-1)
+		num.growth.talent = Global.arr.talent[index_r]
+		num.growth.genius = 1
+
 class Sect:
 	var num = {}
 	var arr = {}
@@ -89,6 +116,7 @@ class Sect:
 		num.index = Global.num.primary_key.cultivator
 		Global.num.primary_key.cultivator += 1
 		arr.cultivator = []
+		obj.village = input_.village
 		
 		init_cultivators()
 
@@ -133,3 +161,9 @@ class Arena:
 		for village in input_.road.arr.village:
 			village.arr.arena.append(self)
 			dict.cohort[village] = []
+
+	func get_rivals(village_):
+		var rivals = []
+		rivals.append_array(dict.cohort.keys())
+		rivals.erase(village_)
+		return rivals
