@@ -235,6 +235,7 @@ class Map:
 			set_threats()
 			init_threats_alarm()
 			spread_cohorts()
+			start_contests()
 
 	func init_vicinitys():
 		arr.vicinity = []
@@ -933,36 +934,32 @@ class Map:
 					input.sect = sect
 					input.arena = arena
 					var cohort = Classes_Arena.Cohort.new(input)
-					arena.dict.cohort[cohort.obj.sect.obj.village].append(cohort)
+					arena.dict.cohorts[village].append(cohort)
 		
 		for village in arr.village:
 			village.dict.ratio = {}
 			var total = 0
 			
 			for arena in village.arr.arena:
-				#if only one rival
+				#front only if one rival
 				var rival = arena.get_rivals(village).front()
 				village.dict.ratio[rival] = rival.num.power.unalarmed
 			
-			var one = 0.0
-			var total_2 = 0
-			
 			for rival in village.dict.ratio.keys():
-				total_2 += village.dict.ratio[rival]
+				total += village.dict.ratio[rival]
 				
 			for rival in village.dict.ratio.keys():
-				village.dict.ratio[rival] = float(village.dict.ratio[rival])/total_2
+				village.dict.ratio[rival] = float(village.dict.ratio[rival])/total
 		
 		var laps = {}
 		laps.current = 0
-		laps.max = 1 
+		laps.end = false
 		
-		while laps.current < laps.max:
-			start_lap()
+		while !laps.end:
+			start_lap(laps)
 			laps.current += 1
-			
 
-	func start_lap():
+	func start_lap(laps_):
 		for village in arr.village:
 			var troop = {}
 			troop.min = Global.num.troop.size*village.dict.ratio.keys().size()
@@ -971,18 +968,19 @@ class Map:
 			
 			for sect in village.arr.sect:
 				for cultivator in sect.arr.cultivator:
-					if !cultivator.flag.alarm && !cultivator.flag.cohort:
+					if !cultivator.flag.alarm && cultivator.obj.cohort == null:
 						options.append(cultivator)
 			
 			if options.size() >= troop.min:
-				var powers = []
-				var troops = []
+				var datas = []
 				var indexs = []
 				
 				for _i in village.dict.ratio.keys().size():
-					troops.append([])
+					var data = {}
+					data.cultivators = []
+					data.value = 0
+					datas.append(data)
 					indexs.append(_i)
-					powers.append(0)
 				
 				while troop.current < troop.min:
 					Global.rng.randomize()
@@ -991,17 +989,91 @@ class Map:
 					Global.rng.randomize()
 					index_r = Global.rng.randi_range(0, indexs.size()-1)
 					var index = indexs[index_r]
-					troops[index].append(cultivator)
-					powers[index] += cultivator.num.power.current
+					datas[index].cultivators.append(cultivator)
+					datas[index].value += cultivator.num.power.current
 					
-					if troops[index].size() == Global.num.troop.size:
+					if datas[index].cultivators.size() == Global.num.troop.size:
 						indexs.erase(index)
 					
 					troop.current += 1
 				
-				print(village, powers)
-			
-			
+				if laps_.current == 0:
+					datas.sort_custom(Sorter, "sort_ascending")
+					var datas_2 = []
+					
+					for rival in village.dict.ratio.keys():
+						var data = {}
+						data.rival = rival
+						data.value = village.dict.ratio[rival]
+						datas_2.append(data)
+						
+					datas_2.sort_custom(Sorter, "sort_ascending")
+					
+					if datas_2.size() == datas.size():
+						for _i in datas.size():
+							datas[_i].rival = datas_2[_i].rival
+					
+						for arena in village.arr.arena:
+							var rival = arena.get_rivals(village).front()
+							
+							for data in datas:
+								if rival == data.rival:
+									arena.add_cultivators(village,data.cultivators)
+				else:
+					var datas_2 = []
+					
+					for arena in village.arr.arena:
+						var data = {}
+						data.rival = arena.get_rivals(village).front()
+						data.arena = arena
+						data.value = abs(arena.dict.data[village].avg-arena.dict.data[data.rival].avg)
+						datas_2.append(data)
+					
+					indexs = []
+					
+					for _i in datas.size():
+						indexs.append(_i)
+						
+					var all_perms = Global.get_all_perms(indexs)
+					var datas_3 = []
+					for perm in all_perms:
+						var data = {}
+						data.perm = perm
+						data.value = 0
+						
+						for index in perm.size():
+							var _i = index
+							var _j = perm[index]
+							var sum = datas_2[_j].arena.dict.data[village].sum+datas[_i].value
+							var avg = sum/(datas_2[_j].arena.dict.data[village].n+datas[_i].cultivators.size())
+							var disbalance = abs(datas_2[_j].arena.dict.data[datas_2[_j].rival].avg-avg)
+							data.value += disbalance
+						
+						data.value /= perm.size()
+						datas_3.append(data)
+					
+					datas_3.sort_custom(Sorter, "sort_ascending")
+					options = []
+					
+					for data in datas_3:
+						if data.value == datas_3.front().value:
+							options.append(data.perm)
+							
+					Global.rng.randomize()
+					var index_r = Global.rng.randi_range(0, options.size()-1)
+					var perm = options[index_r]
+					
+					for index in perm.size():
+						var arena = datas_2[perm[index]].arena
+						var rival = arena.get_rivals(village).front()
+						var data = datas[index]
+						arena.add_cultivators(village,data.cultivators)
+			else:
+				laps_.end = true
+
+	func start_contests():
+		var arena = arr.arena.front()
+		arena.contest()
 
 	func check_border(grid_):
 		return grid_.x >= 0 && grid_.x < Global.num.map.cols && grid_.y >= 0 && grid_.y < Global.num.map.rows
@@ -1017,14 +1089,6 @@ class Map:
 
 	func check_reset():
 		if !flag.success:
-#			for arr_ in arr.keys():
-#				if arr_ != 'vicinity' && arr_ != 'region':
-#					for data in arr[arr_]:
-#						data.queue_free()
-#				else:
-#					for datas in arr[arr_]:
-#						for data in datas:
-#							data.queue_free()
 			arr = []
 			
 			_init()

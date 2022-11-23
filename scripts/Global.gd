@@ -59,6 +59,9 @@ func init_num():
 	
 	num.troop = {}
 	num.troop.size = 3
+	
+	num.arena = {}
+	num.arena.round = 3
 
 func init_primary_key():
 	num.primary_key = {}
@@ -209,3 +212,28 @@ func cross(x1_,y1_,x2_,y2_,x3_,y3_,x4_,y4_):
 	var second = min(x3_,x4_) <= x && x <= max(x3_,x4_) && min(y3_,y4_) <= y && y <= max(y3_,y4_)
 	
 	return first && second
+
+
+func get_all_perms(arr_):
+	var result = []
+	perm(result, arr_,0)
+	return result
+
+func perm(result_, arr_, l_):
+	if l_ >= arr_.size():
+		var arr = []
+		arr.append_array(arr_)
+		result_.append(arr)
+		return
+	
+	perm(result_, arr_, l_+1)
+	
+	for _i in range(l_+1,arr_.size(),1):
+		swap(arr_, l_, _i)
+		perm(result_, arr_, l_+1)
+		swap(arr_, l_, _i)
+
+func swap (arr_, i_, j_):
+	var temp = arr_[i_]
+	arr_[i_] = arr_[j_]
+	arr_[j_] = temp

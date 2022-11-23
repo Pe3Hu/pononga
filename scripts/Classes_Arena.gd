@@ -4,6 +4,7 @@ extends Node
 class Cultivator:
 	var num = {}
 	var flag = {}
+	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.cultivator
@@ -41,7 +42,8 @@ class Cultivator:
 		num.recovery = {}
 		num.recovery.health = 1
 		flag.alarm = false
-		flag.cohort = false
+		obj.sect = input_.sect
+		obj.cohort = null
 
 	func jump_stages(value_):
 		for _i in value_:
@@ -143,8 +145,20 @@ class Cohort:
 	func _init(input_):
 		obj.sect = input_.sect
 		obj.arena = input_.arena
-		obj.arena.dict.cohort[obj.sect.obj.village].append(self) 
 		arr.cultivator = []
+
+class Battlefield:
+	var num = {}
+	var dict = {}
+	var flag = {}
+	var obj = {}
+	
+	func _init(input_):
+		obj.arena = input_.arena
+		dict.cultivators = {}
+		
+		for village in obj.arena.dict.cohorts.keys():
+			dict.cultivators[village] = []
 
 class Arena:
 	var num = {}
@@ -156,14 +170,64 @@ class Arena:
 		Global.num.primary_key.arena += 1
 		obj.road = input_.road
 		obj.map = input_.road.arr.village.front().obj.map
-		dict.cohort = {}
+		dict.cohorts = {}
+		dict.data = {}
 		
 		for village in input_.road.arr.village:
 			village.arr.arena.append(self)
-			dict.cohort[village] = []
+			dict.cohorts[village] = []
+			dict.data[village] = {}
+			dict.data[village].n = 0
+			dict.data[village].sum = 0
+			dict.data[village].avg = 0
 
 	func get_rivals(village_):
 		var rivals = []
-		rivals.append_array(dict.cohort.keys())
+		rivals.append_array(dict.cohorts.keys())
 		rivals.erase(village_)
 		return rivals
+
+	func get_cohorts(village_):
+		for village in dict.cohorts.keys():
+			if dict.cohorts[village].front().obj.sect.obj.village == village_:
+				return dict.cohorts[village]
+		
+		return null
+
+	func add_cultivators(village_, cultivators_):
+		for cultivator in cultivators_:
+			for cohort in dict.cohorts[village_]:
+				if cultivator.obj.sect == cohort.obj.sect:
+					cohort.arr.cultivator.append(cultivator)
+					dict.data[village_].n += 1
+					dict.data[village_].sum += cultivator.num.power.current
+					cultivator.obj.cohort = cohort
+		
+		dict.data[village_].avg = dict.data[village_].sum/dict.data[village_].n
+
+	func contest():
+		for village in dict.cohorts.keys():
+			var troop = get_troop(village)
+
+	func get_troop(village_):
+		var options = []
+		
+		for cohort in dict.cohorts[village_]:
+			for cultivator in cohort.arr.cultivator:
+				options.append(cultivator)
+		
+		options.shuffle()
+		var troops = []
+		var size = options.size()/Global.num.arena.round
+		var counter = 0
+		
+		for _i in Global.num.arena.round:
+			troops.append([])
+			
+			for _j in size:
+				troops[_i].append(options[counter])
+				counter += 1
+		
+
+	func spread_cultivators():
+		pass
