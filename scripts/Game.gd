@@ -3,8 +3,10 @@ extends Node
 
 func _ready():
 	Global.obj.map = Classes_Map.Map.new()
+	
 #	Global.rng.randomize()
 #	var index_r = Global.rng.randi_range(0, options.size()-1)
+	
 #	datas.sort_custom(Sorter, "sort_ascending")
 	
 #	var path = "res://json/"

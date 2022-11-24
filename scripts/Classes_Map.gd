@@ -109,13 +109,6 @@ class Village:
 	func _init(input_):
 		num.index = Global.num.primary_key.village
 		Global.num.primary_key.village += 1
-		num.threat = -1
-		num.guardians = 0
-		arr.vicinity = []
-		arr.neighbor = []
-		arr.sect = []
-		arr.road = []
-		arr.arena = []
 		flag.arenas = false
 		flag.interior = false
 		obj.map = input_.map
@@ -123,14 +116,25 @@ class Village:
 		obj.capital.flag.capital = true
 		obj.capital.obj.village = self
 		init_nums()
+		init_arrs()
 		init_sects()
-		num.power = {}
+		init_prioritys()
 		get_total_power()
 
 	func init_nums():
+		num.power = {}
+		num.threat = -1
+		num.guardians = 0
 		num.to_center = obj.capital.vec.center.distance_to(obj.map.vec.center)
 		var grid = obj.capital.vec.grid
 		num.to_border = min(min(grid.x,grid.y),min(Global.num.map.cols-1-grid.x,Global.num.map.rows-1-grid.y))
+
+	func init_arrs():
+		arr.vicinity = []
+		arr.neighbor = []
+		arr.sect = []
+		arr.road = []
+		arr.arena = []
 
 	func init_sects():
 		var input = {}
@@ -138,11 +142,29 @@ class Village:
 		var sect = Classes_Arena.Sect.new(input)
 		arr.sect.append(sect)
 
-	func set_prioritys():
+	func init_prioritys():
 		dict.priority = {}
+		dict.priority.troop = {}
 		
-		for priority in Global.arr.priority:
-			dict.priority[priority] = Global.num.priority.base
+		for key in Global.dict.priority.troop:
+			dict.priority.troop[key] = 1
+		
+		Global.rng.randomize()
+		var index_r = Global.rng.randi_range(0, Global.dict.priority.troop.size()-1)
+		var key = Global.dict.priority.troop[index_r]
+		dict.priority.troop[key] += Global.num.priority.troop
+
+	func roll_priority(priority_):
+		var options = []
+		
+		for key in dict.priority[priority_].keys():
+			for _i in dict.priority[priority_][key]:
+				options.append(key)
+		
+		Global.rng.randomize()
+		var index_r = Global.rng.randi_range(0, options.size()-1)
+		var key = options[index_r]
+		return key
 
 	func get_total_power():
 		num.power.total = 0
@@ -220,22 +242,30 @@ class Map:
 	func _init():
 		num.threat = Global.num.threat.base
 		num.round = 1
+		num.resets = 0
 		flag.domain = false
 		flag.rank = false
 		flag.success = true
 		init_vicinitys()
 		init_borderlands()
 		init_regions()
-		init_sectors()
-		init_villages()
-		init_roads()
-		init_arenas()
 		
 		if flag.success:
-			set_threats()
-			init_threats_alarm()
-			spread_cohorts()
-			start_contests()
+			set_4_domains()
+			init_sectors()
+			init_villages()
+			init_roads()
+			init_arenas()
+		
+			if flag.success:
+				set_threats()
+				init_threats_alarm()
+				fill_cohorts()
+				start_contests()
+				
+				print("total resets: ", num.resets)
+		
+		check_reset()
 
 	func init_vicinitys():
 		arr.vicinity = []
@@ -272,16 +302,9 @@ class Map:
 
 	func init_regions():
 		arr.region = []
-		
 		init_associates()
 		set_region_neighbors(0)
 		init_region_ranks()
-		set_4_domains()
-		#while arr.region.size() < Global.num.region.ranks:
-			#var rank = arr.region.size() - 1
-			
-			#for region in arr.region[rank]:
-		pass
 
 	func init_associates():
 		arr.region.append([])
@@ -300,12 +323,6 @@ class Map:
 			
 			if isolated != null:
 				shift_isolated(isolated)
-		
-#		for region in arr.region[0]:
-#			for vicinity in region.arr.vicinity:
-#				var hue = float(region.num.index)/float(arr.region[0].size())
-#				vicinity.color.background = Color().from_hsv(hue,1,1) 
-		pass
 
 	func generate_associate(unused_):
 		var rank = 0
@@ -326,10 +343,6 @@ class Map:
 				for neighbor in vicinity.arr.neighbor:
 					if neighbor.flag.free:
 						var mid = round(Global.num.map.half)
-#						var d = max(abs(mid-neighbor.vec.grid.x),abs(mid-neighbor.vec.grid.y))
-#						var n = d + 1
-#						for _i in pow(n,3): 
-#							options.append(neighbor)
 						var option = {}
 						option.n = neighbor.arr.delimited.size()
 						option.d = max(abs(mid-neighbor.vec.grid.x),abs(mid-neighbor.vec.grid.y))
@@ -521,7 +534,6 @@ class Map:
 									datas_2.append(data)
 						
 						if datas_2.size() == 0:
-							#pint("init_region_ranks fail 0")
 							flag.rank = false
 						else:
 							for data_2 in datas_2:
@@ -539,7 +551,6 @@ class Map:
 					var new_region = Classes_Map.Region.new(input)
 					
 					if regions.size() != 3:
-						#rint("init_region_ranks fail 1")
 						flag.rank = false
 					
 					for region in regions:
@@ -567,8 +578,6 @@ class Map:
 		
 			rank += 1
 			set_region_neighbors(rank)
-		
-		check_reset()
 
 	func set_4_domains():
 		var rank = 0
@@ -855,15 +864,14 @@ class Map:
 				else:
 					datas = []
 					flag.success = false
-		
-		check_reset()
-		
-		for road in arr.road:
-			if road.flag.arena:
-				var input = {}
-				input.road = road
-				var arena = Classes_Arena.Arena.new(input)
-				arr.arena.append(arena)
+					
+		if flag.success:
+			for road in arr.road:
+				if road.flag.arena:
+					var input = {}
+					input.road = road
+					var arena = Classes_Arena.Arena.new(input)
+					arr.arena.append(arena)
 
 	func reinit_villages():
 		for village in arr.village:
@@ -924,7 +932,7 @@ class Map:
 		for village in arr.village:
 			village.alarm()
 
-	func spread_cohorts():
+	func fill_cohorts():
 		for village in arr.village:
 			village.get_unalarmed_power()
 			
@@ -934,7 +942,7 @@ class Map:
 					input.sect = sect
 					input.arena = arena
 					var cohort = Classes_Arena.Cohort.new(input)
-					arena.dict.cohorts[village].append(cohort)
+					arena.dict.data[village].cohorts.append(cohort)
 		
 		for village in arr.village:
 			village.dict.ratio = {}
@@ -1091,6 +1099,7 @@ class Map:
 		if !flag.success:
 			arr = []
 			
+			num.resets += 1
 			_init()
 
 class Sorter:

@@ -52,7 +52,8 @@ func init_num():
 	num.threat.step = 1.1
 	
 	num.priority = {}
-	num.priority.base = 10
+	num.priority.cohort = 3
+	num.priority.troop = 3
 	
 	num.talent = {}
 	num.talent.max = 10
@@ -61,7 +62,8 @@ func init_num():
 	num.troop.size = 3
 	
 	num.arena = {}
-	num.arena.round = 3
+	num.arena.rounds = 3
+	num.arena.timer = 60
 
 func init_primary_key():
 	num.primary_key = {}
@@ -74,6 +76,10 @@ func init_primary_key():
 
 func init_dict():
 	init_window_size()
+	
+	dict.priority = {}
+	dict.priority.cohort = ["Abstinence","Survival","Balance","Prepotence"]
+	dict.priority.troop = ["Ambush","Swoop"]
 
 func init_window_size():
 	dict.window_size = {}
@@ -103,7 +109,6 @@ func init_arr():
 	arr.domain = [0,1,2,3]
 	arr.elevation = ["Fossa","Hill","Peak"]
 	arr.elevation
-	arr.priority = ["Abstinence","Survival","Balance","Prepotence"]
 	fill_talent()
 
 func fill_talent():
@@ -212,7 +217,6 @@ func cross(x1_,y1_,x2_,y2_,x3_,y3_,x4_,y4_):
 	var second = min(x3_,x4_) <= x && x <= max(x3_,x4_) && min(y3_,y4_) <= y && y <= max(y3_,y4_)
 	
 	return first && second
-
 
 func get_all_perms(arr_):
 	var result = []

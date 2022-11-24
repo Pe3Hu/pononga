@@ -155,48 +155,58 @@ class Battlefield:
 	
 	func _init(input_):
 		obj.arena = input_.arena
+		obj.vexillary = null
 		dict.cultivators = {}
 		
-		for village in obj.arena.dict.cohorts.keys():
+		for village in obj.arena.dict.data.keys():
 			dict.cultivators[village] = []
 
 class Arena:
 	var num = {}
 	var dict = {}
+	var flag = {}
 	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.arena
 		Global.num.primary_key.arena += 1
+		num.round = -1
+		num.timer = {}
+		num.timer.max = Global.num.arena.timer
+		num.timer.current = num.timer.max
+		num.timer.total = 0
 		obj.road = input_.road
 		obj.map = input_.road.arr.village.front().obj.map
-		dict.cohorts = {}
+		obj.winner = null
 		dict.data = {}
+		flag.reinforcement = true
 		
 		for village in input_.road.arr.village:
 			village.arr.arena.append(self)
-			dict.cohorts[village] = []
 			dict.data[village] = {}
 			dict.data[village].n = 0
 			dict.data[village].sum = 0
 			dict.data[village].avg = 0
+			dict.data[village].delay = 0
+			dict.data[village].cohorts = []
+			dict.data[village].reserve = []
 
 	func get_rivals(village_):
 		var rivals = []
-		rivals.append_array(dict.cohorts.keys())
+		rivals.append_array(dict.data.keys())
 		rivals.erase(village_)
 		return rivals
 
 	func get_cohorts(village_):
-		for village in dict.cohorts.keys():
-			if dict.cohorts[village].front().obj.sect.obj.village == village_:
-				return dict.cohorts[village]
+		for village in dict.data.keys():
+			if dict.data[village].cohorts.front().obj.sect.obj.village == village_:
+				return dict.data[village].cohorts
 		
 		return null
 
 	func add_cultivators(village_, cultivators_):
 		for cultivator in cultivators_:
-			for cohort in dict.cohorts[village_]:
+			for cohort in dict.data[village_].cohorts:
 				if cultivator.obj.sect == cohort.obj.sect:
 					cohort.arr.cultivator.append(cultivator)
 					dict.data[village_].n += 1
@@ -206,28 +216,79 @@ class Arena:
 		dict.data[village_].avg = dict.data[village_].sum/dict.data[village_].n
 
 	func contest():
-		for village in dict.cohorts.keys():
-			var troop = get_troop(village)
+		prepare_battlefields()
+		prepare_troops()
+		start_contest()
 
-	func get_troop(village_):
+	func prepare_battlefields():
+		pass
+
+	func prepare_troops():
+		for village in dict.data.keys():
+			get_troops(village)
+			order_troops(village)
+
+	func get_troops(village_):
 		var options = []
 		
-		for cohort in dict.cohorts[village_]:
+		for cohort in dict.data[village_].cohorts:
 			for cultivator in cohort.arr.cultivator:
 				options.append(cultivator)
 		
 		options.shuffle()
-		var troops = []
-		var size = options.size()/Global.num.arena.round
+		dict.data[village_].troops = []
+		var troop_size = options.size()/Global.num.arena.rounds
 		var counter = 0
 		
-		for _i in Global.num.arena.round:
-			troops.append([])
+		for _i in Global.num.arena.rounds:
+			var troop = {}
+			troop.cultivators = []
+			troop.order = -1
+			troop.value = 0
 			
-			for _j in size:
-				troops[_i].append(options[counter])
+			for _j in troop_size:
+				var cultivator = options[counter]
+				troop.cultivators.append(cultivator)
+				troop.value += cultivator.num.power.current
 				counter += 1
+			
+			dict.data[village_].troops.append(troop)
+
+	func order_troops(village_):
+		var priority = village_.roll_priority("troop")
+		
+		match priority:
+			"Ambush":
+				dict.data[village_].troops.sort_custom(Classes_Map.Sorter, "sort_descending")
+			"Swoop":
+				dict.data[village_].troops.sort_custom(Classes_Map.Sorter, "sort_ascending")
+		
+		for _i in dict.data[village_].troops.size():
+			dict.data[village_].troops[_i].order = _i
+
+	func start_contest():
+		check_round()
+		bring_cultivator()
+		#print(dict.reserve)
+
+	func refill_reserve():
+		if flag.reinforcement:
+			for village in dict.data.keys():
+				for cultivator in dict.data[village].troops[num.round].cultivators:
+					dict.data[village].reserve.append(cultivator)
+
+	func bring_cultivator():
+		for village in dict.data.keys():
+			if dict.data[village].delay == num.timer.total:
+				analysis_battlefields()
 		
 
-	func spread_cultivators():
+	func analysis_battlefields():
 		pass
+
+	func check_round():
+		if num.round < Global.num.arena.rounds:
+			if num.timer.current >= num.timer.max:
+				num.round += 1
+				refill_reserve()
+				num.timer.current -= num.timer.max
