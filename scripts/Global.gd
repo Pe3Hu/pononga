@@ -64,6 +64,10 @@ func init_num():
 	num.arena = {}
 	num.arena.rounds = 3
 	num.arena.timer = 60
+	num.arena.battlefields = 3
+	
+	num.battlefield = {}
+	num.battlefield.combo = 3
 
 func init_primary_key():
 	num.primary_key = {}
@@ -80,6 +84,9 @@ func init_dict():
 	dict.priority = {}
 	dict.priority.cohort = ["Abstinence","Survival","Balance","Prepotence"]
 	dict.priority.troop = ["Ambush","Swoop"]
+	
+	dict.battlefield = {}
+	dict.battlefield.rule = ["Same Stage", "Full Span", "Ordered Elevation"]#"Same Sect"
 
 func init_window_size():
 	dict.window_size = {}
@@ -94,6 +101,7 @@ func init_arr():
 	arr.sequence["A000124"] = [7, 11, 16] #, 22, 29, 37, 46, 56, 67, 79, 92, 106, 121, 137, 154, 172, 191, 211]
 	arr.sequence["A001358"] = [4, 6, 9, 10, 14, 15, 21, 22, 25, 26]
 	arr.sequence["B000000"] = [2, 3, 5, 8, 10, 13, 17, 20, 24, 29, 33, 38]
+	arr.sequence["Battlefield Rule"] = [2, 3, 5]
 	arr.point = [
 		Vector2( 1,-1),
 		Vector2( 1, 1),
@@ -108,7 +116,6 @@ func init_arr():
 	]
 	arr.domain = [0,1,2,3]
 	arr.elevation = ["Fossa","Hill","Peak"]
-	arr.elevation
 	fill_talent()
 
 func fill_talent():
@@ -237,7 +244,21 @@ func perm(result_, arr_, l_):
 		perm(result_, arr_, l_+1)
 		swap(arr_, l_, _i)
 
-func swap (arr_, i_, j_):
+func swap(arr_, i_, j_):
 	var temp = arr_[i_]
 	arr_[i_] = arr_[j_]
 	arr_[j_] = temp
+
+func conjunction(n_, m_):
+	var result = factorial(n_)
+	result /= factorial(n_-m_)
+	result /= factorial(m_)
+	return result
+
+func factorial(n_):
+	var result = 1
+	
+	for _i in range(2,n_+1,1):
+		result *= _i
+	
+	return result

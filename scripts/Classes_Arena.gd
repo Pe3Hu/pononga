@@ -9,6 +9,15 @@ class Cultivator:
 	func _init(input_):
 		num.index = Global.num.primary_key.cultivator
 		Global.num.primary_key.cultivator += 1
+		init_nums()
+		jump_stages(input_.stage)
+		calc_volume()
+		calc_power()
+		flag.alarm = false
+		obj.sect = input_.sect
+		obj.cohort = null
+
+	func init_nums():
 		num.growth = {}
 		set_growth()
 		num.volume = {}
@@ -23,12 +32,9 @@ class Cultivator:
 		num.stage.floor = 0
 		num.enlightenment = {}
 		num.enlightenment.current = 0
-		jump_stages(input_.stage)
-		calc_volume()
 		num.art = {}
 		num.art.avg = 1
 		num.power = {}
-		calc_power()
 		num.damage = {}
 		num.damage.current = 10
 		num.reload = {}
@@ -41,9 +47,6 @@ class Cultivator:
 		num.defense.factor = 0
 		num.recovery = {}
 		num.recovery.health = 1
-		flag.alarm = false
-		obj.sect = input_.sect
-		obj.cohort = null
 
 	func jump_stages(value_):
 		for _i in value_:
@@ -149,23 +152,101 @@ class Cohort:
 
 class Battlefield:
 	var num = {}
+	var word = {}
 	var dict = {}
 	var flag = {}
 	var obj = {}
-	
+
 	func _init(input_):
 		obj.arena = input_.arena
+		word.rule = input_.rule
 		obj.vexillary = null
 		dict.cultivators = {}
+		dict.perspectives = {}
 		
 		for village in obj.arena.dict.data.keys():
 			dict.cultivators[village] = []
+			dict.perspectives[village] = {}
+			dict.perspectives[village].combos = {}
+
+	func calc_perspectives(village_):
+		if dict.perspectives[village_].combos.keys().size() == 0:
+			var cultivators = []
+			var starts = []
+			
+			for troop in obj.arena.dict.data[village_].troops:
+				for cultivator in troop.cultivators:
+					cultivators.append(cultivator)
+					
+					if !starts.has(cultivator.num.stage.current):
+						starts.append(cultivator.num.stage.current)
+			
+			starts.sort()
+			
+			for start in starts:
+				dict.perspectives[village_].combos[start] = {}
+				dict.perspectives[village_].combos[start].components = {}
+				dict.perspectives[village_].combos[start].alternatives = 1
+				dict.perspectives[village_].combos[start].prize = 1
+			
+			match word.rule:
+				"Same Stage":#, "Full Span", "Ordered Elevation"
+					for start in starts:
+						for _i in Global.num.battlefield.combo:
+							dict.perspectives[village_].combos[start].components[start] = 0
+				"Full Span":
+					for start in starts:
+						for _i in Global.num.battlefield.combo:
+							dict.perspectives[village_].combos[start].components[start+_i] = 0
+				"Ordered Elevation":
+					for start in starts:
+						for _i in Global.num.battlefield.combo:
+							dict.perspectives[village_].combos[start].components[start+_i*Global.arr.elevation.size()] = 0
+			
+			for cultivator in cultivators:
+				for start in dict.perspectives[village_].combos.keys():
+					if dict.perspectives[village_].combos[start].components.has(cultivator.num.stage.current):
+						dict.perspectives[village_].combos[start].components[cultivator.num.stage.current] += 1
+			
+			match word.rule:
+				"Same Stage":
+					for start in dict.perspectives[village_].combos.keys():
+						if dict.perspectives[village_].combos[start].components[start] < Global.arr.elevation.size():
+							dict.perspectives[village_].combos.erase(start)
+				"Full Span":
+					for start in dict.perspectives[village_].combos.keys():
+						if start % Global.arr.elevation.size() != 0:
+							dict.perspectives[village_].combos.erase(start)
+			
+			for start in dict.perspectives[village_].combos.keys():
+				var flag = false
+				
+				for key in dict.perspectives[village_].combos[start].components.keys():
+					var value = dict.perspectives[village_].combos[start].components[key]
+					flag = flag || value <= 0
+				
+				if flag:
+					dict.perspectives[village_].combos.erase(start)
+			
+			for start in dict.perspectives[village_].combos.keys():
+				for key in dict.perspectives[village_].combos[start].components.keys():
+					var value = dict.perspectives[village_].combos[start].components[key]
+					dict.perspectives[village_].combos[start].alternatives *= value
+					dict.perspectives[village_].combos[start].prize += key
+					
+				if word.rule == "Same Stage":
+					var value = dict.perspectives[village_].combos[start].components[start]
+					dict.perspectives[village_].combos[start].alternatives = Global.conjunction(value,Global.num.battlefield.combo)					
+					dict.perspectives[village_].combos[start].prize *= (Global.num.battlefield.combo-1)
+		else:
+			pass
 
 class Arena:
 	var num = {}
+	var obj = {}
+	var arr = {}
 	var dict = {}
 	var flag = {}
-	var obj = {}
 
 	func _init(input_):
 		num.index = Global.num.primary_key.arena
@@ -179,6 +260,7 @@ class Arena:
 		obj.map = input_.road.arr.village.front().obj.map
 		obj.winner = null
 		dict.data = {}
+		dict.analysis = {}
 		flag.reinforcement = true
 		
 		for village in input_.road.arr.village:
@@ -221,7 +303,19 @@ class Arena:
 		start_contest()
 
 	func prepare_battlefields():
-		pass
+		arr.battlefield = []
+		var options = []
+		options.append_array(Global.dict.battlefield.rule)
+		
+		for _i in Global.num.arena.battlefields:
+			Global.rng.randomize()
+			var index_r = Global.rng.randi_range(0, options.size()-1)
+			var input = {}
+			input.arena = self
+			input.rule = options.pop_at(index_r)
+			var battlefield = Classes_Arena.Battlefield.new(input)
+			arr.battlefield.append(battlefield)
+			dict.analysis[battlefield] = {}
 
 	func prepare_troops():
 		for village in dict.data.keys():
@@ -269,7 +363,7 @@ class Arena:
 	func start_contest():
 		check_round()
 		bring_cultivator()
-		#print(dict.reserve)
+		#rint(dict.reserve)
 
 	func refill_reserve():
 		if flag.reinforcement:
@@ -280,11 +374,33 @@ class Arena:
 	func bring_cultivator():
 		for village in dict.data.keys():
 			if dict.data[village].delay == num.timer.total:
-				analysis_battlefields()
-		
+				analysis_battlefields(village)
 
-	func analysis_battlefields():
-		pass
+	func analysis_battlefields(village_):
+		for battlefield in arr.battlefield:
+			battlefield.calc_perspectives(village_)
+		
+		size_possibilities(village_)
+
+	func size_possibilities(village_):
+		var datas = []
+		
+		for battlefield in arr.battlefield:
+			var combos = battlefield.dict.perspectives[village_].combos
+			
+			for start in combos.keys():
+				var data = {}
+				data.battlefield = battlefield
+				data.components = []
+				data.alternatives = combos[start].alternatives
+				data.prize = combos[start].prize
+				data.value = 0
+				
+				for key in combos[start].components.keys():
+					data.components.append(key)
+				
+				datas.append(data)
+		print(datas)
 
 	func check_round():
 		if num.round < Global.num.arena.rounds:

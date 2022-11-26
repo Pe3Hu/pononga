@@ -258,12 +258,11 @@ class Map:
 			init_arenas()
 		
 			if flag.success:
+				print("total resets: ", num.resets)
 				set_threats()
 				init_threats_alarm()
 				fill_cohorts()
 				start_contests()
-				
-				print("total resets: ", num.resets)
 		
 		check_reset()
 
